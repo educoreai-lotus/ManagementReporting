@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const CONTENT_STUDIO_API_URL = process.env.CONTENT_STUDIO_API_URL;
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
 
-if (!CONTENT_STUDIO_API_URL) {
-  console.error("Missing CONTENT_STUDIO_API_URL env variable");
+if (!COORDINATOR_API_URL) {
+  console.error("Missing COORDINATOR_API_URL env variable");
 }
 
 /**
@@ -41,7 +41,7 @@ export async function fetchContentMetricsFromContentStudio() {
     const requestJsonString = JSON.stringify(requestObject);
 
     // 3. Send as raw JSON string (application/json)
-    const response = await axios.post(CONTENT_STUDIO_API_URL, requestJsonString, {
+    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
       headers: {
         "Content-Type": "application/json"
       },

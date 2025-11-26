@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const COURSE_BUILDER_API_URL = process.env.COURSE_BUILDER_API_URL;
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
 
-if (!COURSE_BUILDER_API_URL) {
-  console.error("Missing COURSE_BUILDER_API_URL env variable");
+if (!COORDINATOR_API_URL) {
+  console.error("Missing COORDINATOR_API_URL env variable");
 }
 
 /**
@@ -57,7 +57,7 @@ export async function fetchCourseBuilderDataFromService() {
   try {
     const requestJsonString = JSON.stringify(requestObject);
 
-    const response = await axios.post(COURSE_BUILDER_API_URL, requestJsonString, {
+    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
       headers: {
         "Content-Type": "application/json"
       },

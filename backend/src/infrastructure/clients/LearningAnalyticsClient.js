@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const LEARNING_ANALYTICS_API_URL = process.env.LEARNING_ANALYTICS_API_URL;
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
 
-if (!LEARNING_ANALYTICS_API_URL) {
-  console.error("Missing LEARNING_ANALYTICS_API_URL env variable");
+if (!COORDINATOR_API_URL) {
+  console.error("Missing COORDINATOR_API_URL env variable");
 }
 
 /**
@@ -104,7 +104,7 @@ export async function fetchLearningAnalyticsFromService() {
   try {
     const requestJsonString = JSON.stringify(requestObject);
 
-    const response = await axios.post(LEARNING_ANALYTICS_API_URL, requestJsonString, {
+    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
       headers: {
         "Content-Type": "application/json"
       },

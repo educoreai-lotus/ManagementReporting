@@ -11,10 +11,8 @@ import { saveContentStudioSnapshot } from '../../infrastructure/db/contentStudio
 import { saveLearningAnalyticsSnapshot } from '../../infrastructure/db/learningAnalyticsCache.js';
 
 export class CollectDataUseCase {
-  constructor(cacheRepository, microserviceClient, retryService) {
-    // Keep references for future use (and to avoid breaking existing callers)
+  constructor(cacheRepository, retryService) {
     this.cacheRepository = cacheRepository;
-    this.microserviceClient = microserviceClient;
     this.retryService = retryService;
 
     this.defaultServices = ['directory', 'courseBuilder', 'assessment', 'contentStudio', 'learningAnalytics'];

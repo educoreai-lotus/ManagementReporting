@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const DIRECTORY_API_URL = process.env.DIRECTORY_API_URL;
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
 
-if (!DIRECTORY_API_URL) {
-  console.error("Missing DIRECTORY_API_URL env variable");
+if (!COORDINATOR_API_URL) {
+  console.error("Missing COORDINATOR_API_URL env variable");
 }
 
 /**
@@ -67,7 +67,7 @@ export async function fetchDirectoryDataFromService() {
   try {
     const requestJsonString = JSON.stringify(requestObject);
 
-    const response = await axios.post(DIRECTORY_API_URL, requestJsonString, {
+    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
       headers: {
         "Content-Type": "application/json"
       },

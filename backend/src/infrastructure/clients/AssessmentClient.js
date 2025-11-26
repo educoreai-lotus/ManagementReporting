@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const ASSESSMENT_API_URL = process.env.ASSESSMENT_API_URL;
+const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
 
-if (!ASSESSMENT_API_URL) {
-  console.error("Missing ASSESSMENT_API_URL env variable");
+if (!COORDINATOR_API_URL) {
+  console.error("Missing COORDINATOR_API_URL env variable");
 }
 
 /**
@@ -62,7 +62,7 @@ export async function fetchAssessmentDataFromService() {
   try {
     const requestJsonString = JSON.stringify(requestObject);
 
-    const response = await axios.post(ASSESSMENT_API_URL, requestJsonString, {
+    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
       headers: {
         "Content-Type": "application/json"
       },
