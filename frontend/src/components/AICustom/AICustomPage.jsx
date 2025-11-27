@@ -306,6 +306,8 @@ const AICustomPage = () => {
     }
   };
 
+  const safeResultReason = result ? getSafeDescription(result.reason) : null;
+
   return (
     <div className="min-h-screen py-8">
       {/* Welcome Message */}
@@ -434,9 +436,9 @@ const AICustomPage = () => {
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">
                 {result.transformed.kind === 'chart' ? 'AI-Generated Graph' : 'Query Results'}
               </h2>
-              {getSafeDescription(result.reason) && (
+              {safeResultReason && (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-                  {getSafeDescription(result.reason)}
+                  {safeResultReason}
                 </p>
               )}
               <div className="text-xs text-neutral-500 dark:text-neutral-500 mb-4">
