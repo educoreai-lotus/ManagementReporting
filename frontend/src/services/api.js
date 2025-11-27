@@ -55,10 +55,10 @@ api.interceptors.request.use(
             console.log(`[API Request] First chart keys:`, dataObj.charts[0] ? Object.keys(dataObj.charts[0]) : 'N/A');
             console.log(`[API Request] First chart structure:`, dataObj.charts[0] ? {
               hasChartId: !!dataObj.charts[0].chartId,
-              hasImageUrl: !!dataObj.charts[0].imageUrl,
+              hasChartPayload: !!dataObj.charts[0].chartPayload,
               hasContext: !!dataObj.charts[0].context,
               chartId: dataObj.charts[0].chartId,
-              imageUrlLength: dataObj.charts[0].imageUrl?.length || 0
+              dataPoints: dataObj.charts[0].chartPayload?.data?.length || 0
             } : 'N/A');
           } else {
             console.warn(`[API Request] ⚠️ Body does not have charts array!`, dataObj);
@@ -251,7 +251,7 @@ export const chartTranscriptionAPI = {
   /**
    * POST /startup: Sequentially transcribe charts on first load
    * Only saves if transcription doesn't exist
-   * Body: { charts: [{ chartId, imageUrl, context? }] }
+   * Body: { charts: [{ chartId, chartPayload, context? }] }
    */
   startup: (charts) => {
     return api.post('/ai/chart-transcription/startup', { charts });
@@ -259,7 +259,7 @@ export const chartTranscriptionAPI = {
   
   /**
    * POST /refresh: Always overwrite transcriptions when data changes
-   * Body: { charts: [{ chartId, imageUrl, context? }] }
+   * Body: { charts: [{ chartId, chartPayload, context? }] }
    */
   refresh: (charts) => {
     return api.post('/ai/chart-transcription/refresh', { charts });

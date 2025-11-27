@@ -1,8 +1,81 @@
 import { useState, useEffect, useRef } from 'react';
 import { dashboardAPI, chartTranscriptionAPI } from '../services/api';
 import { browserCache } from '../services/cache';
-import html2canvas from 'html2canvas';
 import { apiQueue } from '../utils/apiQueue';
+
+const MAX_TRANSCRIPTION_POINTS = 200;
+
+const sanitizeDataPoint = (entry) => {
+  if (!entry || typeof entry !== 'object') {
+    return entry;
+  }
+
+  const sanitized = {};
+  Object.entries(entry).forEach(([key, value]) => {
+    if (
+      value === null ||
+      typeof value === 'number' ||
+      typeof value === 'string' ||
+      typeof value === 'boolean'
+    ) {
+      sanitized[key] = value;
+    }
+  });
+  return sanitized;
+};
+
+const buildChartTranscriptionPayload = (chart) => {
+  if (!chart) {
+    return null;
+  }
+
+  const metadata = chart.metadata || {};
+  const dataArray = Array.isArray(chart.data) ? chart.data : [];
+  const trimmedData = dataArray.slice(0, MAX_TRANSCRIPTION_POINTS).map(sanitizeDataPoint);
+  const axes = {
+    x: metadata.xAxisLabel || metadata.xAxis || metadata.xLabel || null,
+    y: metadata.yAxisLabel || metadata.yAxis || metadata.yLabel || null
+  };
+
+  const seriesKeys =
+    trimmedData.length > 0
+      ? Object.keys(trimmedData[0]).filter((key) => key !== 'name' && typeof trimmedData[0][key] === 'number')
+      : [];
+
+  return {
+    chartId: chart.id || '',
+    title: chart.title || '',
+    subtitle: chart.subtitle || '',
+    description: chart.description || '',
+    type: chart.type || metadata.chartType || 'chart',
+    axes,
+    seriesKeys,
+    metadata: {
+      services: metadata.services || [],
+      chartType: metadata.chartType || chart.type || 'chart',
+      colorScheme: metadata.colorScheme || null,
+      lastUpdated: metadata.lastUpdated || null
+    },
+    data: trimmedData
+  };
+};
+
+const getStoredReportChartsMap = () => {
+  try {
+    const stored = sessionStorage.getItem('lastGeneratedReportData');
+    if (!stored) {
+      return new Map();
+    }
+    const parsed = JSON.parse(stored);
+    const charts = parsed?.charts || [];
+    return new Map(
+      charts.map((chart, idx) => [chart.id || chart.title || `chart-${idx}`, chart])
+    );
+  } catch (err) {
+    console.warn('[useDashboardData] Failed to parse stored report data:', err);
+    return new Map();
+  }
+};
 
 export const useDashboardData = () => {
   const [data, setData] = useState(null);
@@ -218,7 +291,7 @@ export const useDashboardData = () => {
             console.log(`[Dashboard Startup] 🔍 After additional wait: Found ${recheckElements.length} chart elements`);
           }
           
-          // Capture all chart images and send to startup endpoint
+          // Build chart payloads and send to startup endpoint
           if (allChartsForTranscription && allChartsForTranscription.length > 0) {
             (async () => {
               try {
@@ -226,121 +299,54 @@ export const useDashboardData = () => {
                 console.log(`[Dashboard Startup] 🚀 STARTING STARTUP TRANSCRIPTION FLOW`);
                 console.log(`[Dashboard Startup] Total charts to process: ${allChartsForTranscription.length}`);
                 console.log(`[Dashboard Startup] Chart IDs:`, allChartsForTranscription.map(c => c.id));
-                
-                // Capture all chart images
+
                 const chartsForStartup = [];
                 for (let i = 0; i < allChartsForTranscription.length; i++) {
                   const chart = allChartsForTranscription[i];
                   const chartId = chart.id || `chart-${i}`;
-                  
-                  try {
-                    // Find the chart element - try multiple strategies to ensure we find it
-                    let chartElement = null;
-                    let chartCard = null;
-                    
-                    // Strategy 1: Find by exact chartId
-                    chartCard = document.querySelector(`[data-chart-id="${chartId}"]`);
-                    if (chartCard) {
-                      chartElement = chartCard.querySelector('.recharts-wrapper');
-                    }
-                    
-                    // Strategy 2: If not found, try to find in hidden container (BOX charts)
-                    if (!chartElement) {
-                      // Hidden charts are in a container with position absolute and top: -9999px
-                      const hiddenContainer = document.querySelector('[aria-hidden="true"][style*="position: absolute"]');
-                      if (hiddenContainer) {
-                        chartCard = hiddenContainer.querySelector(`[data-chart-id="${chartId}"]`);
-                        if (chartCard) {
-                          chartElement = chartCard.querySelector('.recharts-wrapper');
-                        }
-                      }
-                    }
-                    
-                    // Strategy 3: Fallback - try to find by index (last resort)
-                    if (!chartElement) {
-                      const allChartCards = document.querySelectorAll('[data-chart-id]');
-                      if (allChartCards[i]) {
-                        chartCard = allChartCards[i];
-                        chartElement = chartCard.querySelector('.recharts-wrapper');
-                      }
-                    }
-                    
-                    if (chartElement) {
-                      console.log(`[Dashboard Startup] ✅ Found chart element for ${chartId}`);
-                      // Capture chart image
-                      const canvas = await html2canvas(chartElement, {
-                        backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
-                        scale: 0.5,
-                        logging: false,
-                        useCORS: true
-                      });
-                      
-                      const imageUrl = canvas.toDataURL('image/png');
-                      const context = `${chart.title || chartId}`;
-                      
-                      console.log(`[Dashboard Startup] ✅ Captured image for ${chartId}: ${imageUrl.length} chars, context: "${context}"`);
-                      
-                      chartsForStartup.push({
-                        chartId,
-                        imageUrl,
-                        context
-                      });
-                    } else {
-                      console.error(`[Dashboard Startup] ❌ Chart element NOT FOUND for ${chartId}`);
-                    }
-                  } catch (err) {
-                    console.error(`[Dashboard Startup] ❌ Failed to capture chart ${chartId}:`, err);
+                  const chartPayload = buildChartTranscriptionPayload(chart);
+
+                  if (!chartPayload || chartPayload.data.length === 0) {
+                    console.warn(`[Dashboard Startup] ⚠️ Chart ${chartId} has no data to send for transcription, skipping`);
+                    continue;
                   }
+
+                  chartsForStartup.push({
+                    chartId,
+                    context: chart.title || chartId,
+                    chartPayload
+                  });
                 }
-                
-                console.log(`[Dashboard Startup] ========================================`);
-                console.log(`[Dashboard Startup] 📊 CAPTURE SUMMARY:`);
-                console.log(`[Dashboard Startup] Total charts to process: ${allChartsForTranscription.length}`);
-                console.log(`[Dashboard Startup] Successfully captured: ${chartsForStartup.length}`);
-                console.log(`[Dashboard Startup] Chart IDs captured:`, chartsForStartup.map(c => c.chartId));
-                
-                // ⚠️ CRITICAL: Verify all charts were captured
-                if (chartsForStartup.length < allChartsForTranscription.length) {
-                  const missingCharts = allChartsForTranscription
-                    .filter(chart => !chartsForStartup.find(c => c.chartId === (chart.id || `chart-${allChartsForTranscription.indexOf(chart)}`)))
-                    .map(chart => chart.id || `chart-${allChartsForTranscription.indexOf(chart)}`);
-                  console.error(`[Dashboard Startup] ❌❌❌ MISSING CHARTS: ${missingCharts.length} charts were NOT captured!`);
-                  console.error(`[Dashboard Startup] ❌ Missing chart IDs:`, missingCharts);
-                  console.error(`[Dashboard Startup] ❌ This means these charts will NOT be sent to OpenAI!`);
-                } else {
-                  console.log(`[Dashboard Startup] ✅✅✅ ALL CHARTS CAPTURED: ${chartsForStartup.length}/${allChartsForTranscription.length}`);
-                }
-                
+
+                console.log(`[Dashboard Startup] 📊 PAYLOAD SUMMARY: prepared ${chartsForStartup.length}/${allChartsForTranscription.length} charts`);
+
                 if (chartsForStartup.length > 0) {
                   console.log(`[Dashboard Startup] 📤 SENDING TO BACKEND: ${chartsForStartup.length} charts`);
-                  console.log(`[Dashboard Startup] Calling /chart-transcription/startup endpoint...`);
-                  
                   try {
                     const { data } = await chartTranscriptionAPI.startup(chartsForStartup);
-                    
+
                     console.log(`[Dashboard Startup] ========================================`);
                     console.log(`[Dashboard Startup] 📥 BACKEND RESPONSE RECEIVED`);
                     console.log(`[Dashboard Startup] Full response:`, data);
-                    
+
                     if (data.results) {
                       const created = data.results.filter(r => r.status === 'created').length;
                       const errors = data.results.filter(r => r.status === 'error').length;
                       const skipped = data.results.filter(r => r.status === 'skip-invalid').length;
                       console.log(`[Dashboard Startup] Results: ${created} created, ${errors} errors, ${skipped} skipped`);
-                      
-                      // Log each result
+
                       data.results.forEach(result => {
                         console.log(`[Dashboard Startup] Chart ${result.chartId}: ${result.status}${result.error ? ` (${result.error})` : ''}`);
                       });
                     }
-                    
+
                     console.log(`[Dashboard Startup] ✅✅✅ STARTUP TRANSCRIPTION COMPLETED!`);
                     console.log(`[Dashboard Startup] ========================================`);
                   } catch (err) {
                     console.error(`[Dashboard Startup] ❌ Backend startup failed:`, err);
                   }
                 } else {
-                  console.error(`[Dashboard Startup] ❌❌❌ CRITICAL: NO CHARTS WERE CAPTURED!`);
+                  console.error(`[Dashboard Startup] ❌❌❌ CRITICAL: NO CHART PAYLOADS WERE GENERATED!`);
                 }
               } catch (err) {
                 console.error(`[Dashboard Startup] ❌ Error in startup transcription flow:`, err);
@@ -507,98 +513,46 @@ export const useDashboardData = () => {
             console.log(`[Dashboard Refresh] DOM elements with [data-chart-id]:`, document.querySelectorAll('[data-chart-id]').length);
             console.log(`[Dashboard Refresh] DOM elements with .recharts-wrapper:`, document.querySelectorAll('.recharts-wrapper').length);
             
-            // Capture all chart images
+            // Build chart payloads
             const chartsForRefresh = [];
             for (let i = 0; i < allChartsForTranscription.length; i++) {
               const chart = allChartsForTranscription[i];
               const chartId = chart.id || `chart-${i}`;
-              
-              // ✅ STEP 4: LOG CHART ID CONSISTENCY
+
               if (!chart.id) {
                 console.warn(`[Dashboard Refresh] ⚠️ Chart ${i} has no chart.id, falling back to "chart-${i}"`);
               }
-              console.log(`[Dashboard Refresh] ========================================`);
-              console.log(`[Dashboard Refresh] Processing chart ${i + 1}/${allChartsForTranscription.length}`);
-              console.log(`[Dashboard Refresh] chartId: "${chartId}"`);
-              console.log(`[Dashboard Refresh] chart.id: "${chart.id}"`);
-              console.log(`[Dashboard Refresh] chart.title: "${chart.title}"`);
-              
-              try {
-                // Find the chart element - try multiple strategies to ensure we find it
-                let chartElement = null;
-                let chartCard = null;
-                
-                // Strategy 1: Find by exact chartId
-                chartCard = document.querySelector(`[data-chart-id="${chartId}"]`);
-                if (chartCard) {
-                  chartElement = chartCard.querySelector('.recharts-wrapper');
-                }
-                
-                // Strategy 2: If not found, try to find in hidden container (BOX charts)
-                if (!chartElement) {
-                  // Hidden charts are in a container with position absolute and top: -9999px
-                  const hiddenContainer = document.querySelector('[aria-hidden="true"][style*="position: absolute"]');
-                  if (hiddenContainer) {
-                    chartCard = hiddenContainer.querySelector(`[data-chart-id="${chartId}"]`);
-                    if (chartCard) {
-                      chartElement = chartCard.querySelector('.recharts-wrapper');
-                    }
-                  }
-                }
-                
-                // Strategy 3: Fallback - try to find by index (last resort)
-                if (!chartElement) {
-                  const allChartCards = document.querySelectorAll('[data-chart-id]');
-                  if (allChartCards[i]) {
-                    chartCard = allChartCards[i];
-                    chartElement = chartCard.querySelector('.recharts-wrapper');
-                  }
-                }
-                
-                if (chartElement) {
-                  console.log(`[Dashboard Refresh] ✅ Found chart element for ${chartId}`);
-                  // Capture chart image
-                  const canvas = await html2canvas(chartElement, {
-                    backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
-                    scale: 0.5, // Reduced scale to reduce image size and token count
-                    logging: false,
-                    useCORS: true
-                  });
-                  
-                  const imageUrl = canvas.toDataURL('image/png');
-                  const context = `${chart.title || chartId}`;
-                  
-                  console.log(`[Dashboard Refresh] ✅ Captured image for ${chartId}: ${imageUrl.length} chars, context: "${context}"`);
-                  
-                  chartsForRefresh.push({
-                    chartId,
-                    imageUrl,
-                    context
-                  });
-                } else {
-                  console.error(`[Dashboard Refresh] ❌ Chart element NOT FOUND for ${chartId}`);
-                }
-              } catch (err) {
-                console.error(`[Dashboard Refresh] ❌ Failed to capture chart ${chartId}:`, err);
+
+              const chartPayload = buildChartTranscriptionPayload(chart);
+
+              if (!chartPayload || chartPayload.data.length === 0) {
+                console.warn(`[Dashboard Refresh] ⚠️ Chart ${chartId} has no data for transcription, skipping`);
+                continue;
               }
+
+              chartsForRefresh.push({
+                chartId,
+                context: chart.title || chartId,
+                chartPayload
+              });
             }
             
             console.log(`[Dashboard Refresh] ========================================`);
             console.log(`[Dashboard Refresh] 📊 CAPTURE SUMMARY:`);
             console.log(`[Dashboard Refresh] Total charts to process: ${allChartsForTranscription.length}`);
-            console.log(`[Dashboard Refresh] Successfully captured: ${chartsForRefresh.length}`);
-            console.log(`[Dashboard Refresh] Chart IDs captured:`, chartsForRefresh.map(c => c.chartId));
+            console.log(`[Dashboard Refresh] Successfully prepared: ${chartsForRefresh.length}`);
+            console.log(`[Dashboard Refresh] Chart IDs prepared:`, chartsForRefresh.map(c => c.chartId));
             
-            // ⚠️ CRITICAL: Verify all charts were captured
+            // ⚠️ CRITICAL: Verify all charts were prepared
             if (chartsForRefresh.length < allChartsForTranscription.length) {
               const missingCharts = allChartsForTranscription
                 .filter(chart => !chartsForRefresh.find(c => c.chartId === (chart.id || `chart-${allChartsForTranscription.indexOf(chart)}`)))
                 .map(chart => chart.id || `chart-${allChartsForTranscription.indexOf(chart)}`);
-              console.error(`[Dashboard Refresh] ❌❌❌ MISSING CHARTS: ${missingCharts.length} charts were NOT captured!`);
+              console.error(`[Dashboard Refresh] ❌❌❌ MISSING CHART PAYLOADS: ${missingCharts.length} charts were NOT prepared!`);
               console.error(`[Dashboard Refresh] ❌ Missing chart IDs:`, missingCharts);
               console.error(`[Dashboard Refresh] ❌ This means these charts will NOT be sent to OpenAI!`);
             } else {
-              console.log(`[Dashboard Refresh] ✅✅✅ ALL CHARTS CAPTURED: ${chartsForRefresh.length}/${allChartsForTranscription.length}`);
+              console.log(`[Dashboard Refresh] ✅✅✅ ALL CHARTS PREPARED: ${chartsForRefresh.length}/${allChartsForTranscription.length}`);
             }
             
             // ✅ STEP 4: VERIFY ALL CAPTURED CHARTS HAVE STABLE IDs
@@ -617,8 +571,9 @@ export const useDashboardData = () => {
               console.log(`[Dashboard Refresh] Request body structure:`, {
                 charts: chartsForRefresh.map(c => ({
                   chartId: c.chartId,
-                  imageUrl: `${c.imageUrl.substring(0, 50)}... (${c.imageUrl.length} chars)`,
-                  context: c.context
+                  context: c.context,
+                  hasChartPayload: !!c.chartPayload,
+                  dataLength: c.chartPayload?.data?.length || 0
                 }))
               });
               
@@ -663,8 +618,7 @@ export const useDashboardData = () => {
                 if (reportChartElements.length > 0) {
                   console.log(`[Dashboard Refresh] Found ${reportChartElements.length} report charts to refresh`);
                 
-                // Prepare charts array for /refresh endpoint (always overwrites)
-                // Capture all chart images first (these represent the NEW charts with NEW data)
+                const storedReportChartsMap = getStoredReportChartsMap();
                 const chartsForFill = [];
                 
                 for (const chartElement of reportChartElements) {
@@ -672,69 +626,34 @@ export const useDashboardData = () => {
                   if (chartCard) {
                     const chartId = chartCard.getAttribute('data-chart-id');
                     if (chartId) {
-                      try {
-                        // Capture chart image (this represents the NEW chart with NEW data)
-                        const canvas = await html2canvas(chartElement, {
-                          backgroundColor: document.documentElement.classList.contains('dark') ? '#1f2937' : '#ffffff',
-                          scale: 1,
-                          logging: false,
-                          useCORS: true
-                        });
-                        
-                        const imageUrl = canvas.toDataURL('image/png');
-                        
-                        // Get chart title and report title for context
-                        const chartTitle = chartCard.querySelector('h4')?.textContent || chartId;
-                        const reportTitle = document.querySelector('h2')?.textContent || 'Report';
-                        const topic = `${reportTitle} - ${chartTitle}`;
-                        
-                        // Try to get chart data from the report data stored in state
-                        // We need the actual chart data to compute the correct signature
-                        // If we can't get it, use empty object (backend will still work with force=true)
-                        let chartData = {};
-                        
-                        // Try to find chart data from report data (if Reports page has it stored)
-                        // Look for report data in window or try to extract from chart element
-                        try {
-                          // Try to get data from recharts component if available
-                          const rechartsWrapper = chartElement.querySelector('.recharts-wrapper');
-                          if (rechartsWrapper) {
-                            // Try to extract data from recharts (if accessible)
-                            // This is a fallback - ideally we'd have access to report.charts
-                            console.log(`[Dashboard Refresh] Chart ${chartId} - using empty chartData (will use force=true)`);
-                          }
-                        } catch (err) {
-                          console.warn(`[Dashboard Refresh] Could not extract chart data for ${chartId}:`, err);
-                        }
-                        
-                        chartsForFill.push({
-                          chartId,
-                          topic,
-                          chartData,
-                          imageUrl
-                        });
-                        
-                        console.log(`[Dashboard Refresh] Captured chart ${chartId} image (${imageUrl.length} bytes)`);
-                      } catch (err) {
-                        console.error(`[Dashboard Refresh] Failed to capture chart ${chartId}:`, err);
-                        // Continue with other charts even if one fails
+                      const storedChart = storedReportChartsMap.get(chartId);
+                      if (!storedChart) {
+                        console.warn(`[Dashboard Refresh] Report chart ${chartId} not found in stored report data, skipping`);
+                        continue;
                       }
+                      
+                      const chartPayload = buildChartTranscriptionPayload(storedChart);
+                      if (!chartPayload || chartPayload.data.length === 0) {
+                        console.warn(`[Dashboard Refresh] Report chart ${chartId} has no data for transcription, skipping`);
+                        continue;
+                      }
+                      
+                      const reportTitle = document.querySelector('h2')?.textContent || 'Report';
+                      const topic = `${reportTitle} - ${storedChart.title || chartId}`;
+                      
+                      chartsForFill.push({
+                        chartId,
+                        context: topic || chartId,
+                        chartPayload
+                      });
                     }
                   }
                 }
                 
-                // Filter out charts without imageUrl (shouldn't happen, but just in case)
-                const chartsWithImages = chartsForFill.filter(c => c.imageUrl);
-                
-                if (chartsWithImages.length > 0) {
-                  console.log(`[Dashboard Refresh] Refreshing ${chartsWithImages.length} report chart transcriptions with new data...`);
+                if (chartsForFill.length > 0) {
+                  console.log(`[Dashboard Refresh] Refreshing ${chartsForFill.length} report chart transcriptions with new data...`);
                   
-                  // Prepare charts array for /refresh endpoint
-                  const chartsForAPI = chartsWithImages.map(({ chartId, topic, imageUrl }) => ({
-                    chartId,
-                    imageUrl,
-                    context: topic || chartId
-                  }));
+                  const chartsForAPI = chartsForFill;
                   
                   // Call /refresh endpoint - processes charts sequentially, always overwrites
                   const { data } = await chartTranscriptionAPI.refresh(chartsForAPI);
@@ -751,7 +670,7 @@ export const useDashboardData = () => {
                   // Dispatch custom event to notify Reports page to reload transcriptions
                   window.dispatchEvent(new CustomEvent('reportTranscriptionsRefreshed'));
                 } else {
-                  console.warn('[Dashboard Refresh] No report charts with images captured');
+                  console.warn('[Dashboard Refresh] No report charts prepared for transcription');
                 }
               } else {
                 console.log('[Dashboard Refresh] No report charts found to refresh');

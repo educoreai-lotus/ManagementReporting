@@ -8,13 +8,18 @@ const openai = process.env.OPENAI_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_KEY })
   : null;
 
-// System prompt for chart transcription
+// System prompt for chart transcription (image-based)
 // Request: concise title + 3-6 bullet points with insights
-const SYSTEM_PROMPT = `You are a visual data analyst. You receive chart images and must describe them clearly.
+const IMAGE_SYSTEM_PROMPT = `You are a visual data analyst. You receive chart images and must describe them clearly.
 Your output should include:
 - One concise title
 - 3–6 short bullet points summarizing insights
 - Avoid made-up numbers; use "approximately" if unclear.`.trim();
+
+// System prompt for chart transcription (JSON-based)
+const JSON_SYSTEM_PROMPT = `You are a senior data analyst. You receive structured chart data as JSON.
+Provide one concise title and 3–6 short bullet points summarizing the key insights.
+Focus on trends, comparisons, and notable changes. Do not invent data not present in the JSON.`.trim();
 
 /**
  * Transcribe chart image using OpenAI Vision API
@@ -72,7 +77,7 @@ export async function transcribeChartImage({ imageUrl, context }) {
         messages: [
           {
             role: 'system',
-            content: SYSTEM_PROMPT
+            content: IMAGE_SYSTEM_PROMPT
           },
           {
             role: 'user',
@@ -116,6 +121,80 @@ export async function transcribeChartImage({ imageUrl, context }) {
     });
     // Fallback to mock
     return `Chart Analysis\n• This chart displays data trends\n• Key metrics are visible\n• Patterns indicate ${context || 'general performance'}\n• Further analysis recommended`;
+  }
+}
+
+export async function transcribeChartJson({ chartPayload, context }) {
+  if (!openai) {
+    return `Chart Analysis
+• This chart displays data trends
+• Key metrics are visible
+• Patterns indicate ${context || 'general performance'}
+• Further analysis recommended`;
+  }
+
+  const model = 'gpt-4o-mini';
+  let serializedPayload = '{}';
+
+  try {
+    serializedPayload = JSON.stringify(chartPayload || {});
+  } catch (err) {
+    console.error('[transcribeChartJson] Failed to serialize chart payload:', err);
+    serializedPayload = '{}';
+  }
+
+  if (serializedPayload.length > 12000) {
+    console.warn(`[transcribeChartJson] ⚠️ Chart payload too large (${serializedPayload.length} chars), truncating`);
+    serializedPayload = serializedPayload.slice(0, 12000);
+  }
+
+  try {
+    console.log(`[OpenAI] 📞 CALLING OpenAI API for JSON chart transcription...`);
+    console.log(`[OpenAI] Model: ${model}`);
+    console.log(`[OpenAI] Serialized payload length: ${serializedPayload.length}`);
+
+    const response = await withRetry(async () => {
+      return await openai.chat.completions.create({
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: JSON_SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: `Context: ${context || 'Chart'}\n\nChart JSON:\n${serializedPayload}`
+          }
+        ],
+        max_tokens: 400
+      });
+    }, 3);
+
+    console.log(`[OpenAI] ✅ RESPONSE RECEIVED from OpenAI (JSON flow)`);
+
+    const text = response.choices[0]?.message?.content?.trim() || '';
+
+    console.log(`[OpenAI] Response text length: ${text?.length || 0} chars`);
+    console.log(`[OpenAI] Response preview: ${text?.substring(0, 100)}...`);
+
+    if (!text) {
+      console.error(`[OpenAI] ❌ ERROR: Empty transcription from OpenAI (JSON flow)`);
+      throw new Error('Empty transcription from OpenAI');
+    }
+
+    console.log(`[OpenAI] ✅ SUCCESS: Valid transcription received from OpenAI (JSON flow)`);
+    return text;
+  } catch (error) {
+    console.error('[transcribeChartJson] OpenAI error:', {
+      message: error.message,
+      status: error.status,
+      code: error.code
+    });
+    return `Chart Analysis
+• This chart displays data trends
+• Key metrics are visible
+• Patterns indicate ${context || 'general performance'}
+• Further analysis recommended`;
   }
 }
 

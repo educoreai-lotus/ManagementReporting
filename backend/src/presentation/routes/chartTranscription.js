@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { findByChartId, upsertAndReturn, getTranscriptionByChartId, upsertTranscriptionSimple } from '../../infrastructure/repositories/ChartTranscriptionsRepository.js';
 import { computeChartSignature } from '../../utils/chartSignature.js';
-import { transcribeChartImage } from '../../application/services/transcribeChartService.js';
+import { transcribeChartImage, transcribeChartJson } from '../../application/services/transcribeChartService.js';
 import { openaiQueue } from '../../utils/openaiQueue.js';
 
 console.debug('[AI] chartTranscription route loaded. Signature function OK.');
@@ -95,7 +95,7 @@ router.get('/chart-transcription/:chartId', async (req, res) => {
 /**
  * POST /api/v1/ai/chart-transcription/startup
  * Startup workflow: Always calls OpenAI and saves/overwrites transcriptions
- * body: { charts: [{ chartId, imageUrl, context? }] }
+ * body: { charts: [{ chartId, chartPayload?, imageUrl?, context? }] }
  * 
  * - Processes charts sequentially (one at a time) to prevent OpenAI rate limits
  * - ALWAYS calls OpenAI and saves to DB (even if transcription exists)
@@ -134,11 +134,11 @@ router.post('/chart-transcription/startup', async (req, res) => {
     console.log(`[startup] First chart keys:`, Object.keys(charts[0] || {}));
     console.log(`[startup] First chart structure:`, {
       hasChartId: !!charts[0]?.chartId,
-      hasImageUrl: !!charts[0]?.imageUrl,
+      hasChartPayload: !!charts[0]?.chartPayload,
       hasContext: !!charts[0]?.context,
       chartIdType: typeof charts[0]?.chartId,
-      imageUrlType: typeof charts[0]?.imageUrl,
-      imageUrlLength: charts[0]?.imageUrl?.length
+      payloadKeys: charts[0]?.chartPayload ? Object.keys(charts[0].chartPayload) : [],
+      dataPoints: charts[0]?.chartPayload?.data?.length || 0
     });
   }
   
@@ -176,17 +176,19 @@ router.post('/chart-transcription/startup', async (req, res) => {
     console.log(`[startup] Chart object:`, {
       chartId: c?.chartId,
       hasImageUrl: !!c?.imageUrl,
+      hasChartPayload: !!c?.chartPayload,
+      dataPoints: c?.chartPayload?.data?.length || 0,
       imageUrlLength: c?.imageUrl?.length,
       context: c?.context
     });
     
-    if (!c?.chartId || !c?.imageUrl) {
-      console.error(`[startup] ❌ SKIPPING: Invalid chart (missing chartId or imageUrl)`);
+    if (!c?.chartId || (!c?.imageUrl && !c?.chartPayload)) {
+      console.error(`[startup] ❌ SKIPPING: Invalid chart (missing chartId or input payload)`);
       results.push({ chartId: c?.chartId || 'unknown', status: 'skip-invalid' });
       continue;
     }
 
-    const { chartId, imageUrl, context } = c;
+    const { chartId, imageUrl, context, chartPayload } = c;
 
     try {
       // Add delay between charts (except first)
@@ -196,11 +198,19 @@ router.post('/chart-transcription/startup', async (req, res) => {
       }
 
       // Always call OpenAI to get transcription
-      console.log(`[startup] Chart ${chartId}: 📞 Calling OpenAI Vision API...`);
-      console.log(`[startup] Chart ${chartId}: Image size: ${imageUrl.length} chars`);
+      if (chartPayload) {
+        console.log(`[startup] Chart ${chartId}: 📞 Calling OpenAI (JSON payload)...`);
+        console.log(`[startup] Chart ${chartId}: Data points: ${chartPayload?.data?.length || 0}`);
+      } else {
+        console.log(`[startup] Chart ${chartId}: 📞 Calling OpenAI Vision API...`);
+        console.log(`[startup] Chart ${chartId}: Image size: ${imageUrl.length} chars`);
+      }
       console.log(`[startup] Chart ${chartId}: Context: "${context}"`);
       
       const text = await openaiQueue.enqueue(async () => {
+        if (chartPayload) {
+          return await transcribeChartJson({ chartPayload, context });
+        }
         return await transcribeChartImage({ imageUrl, context });
       });
 
@@ -292,7 +302,7 @@ router.post('/chart-transcription/startup', async (req, res) => {
 /**
  * POST /api/v1/ai/chart-transcription/refresh
  * New workflow: Always overwrite transcriptions when data changes
- * body: { charts: [{ chartId, imageUrl, context? }] }
+ * body: { charts: [{ chartId, chartPayload?, imageUrl?, context? }] }
  * 
  * - Processes charts sequentially (one at a time) to prevent OpenAI rate limits
  * - Always calls OpenAI and overwrites existing transcription
@@ -330,13 +340,13 @@ router.post('/chart-transcription/refresh', async (req, res) => {
   // Log first chart structure if available
   if (Array.isArray(charts) && charts.length > 0) {
     console.log(`[refresh] First chart keys:`, Object.keys(charts[0] || {}));
-    console.log(`[refresh] First chart structure:`, {
+  console.log(`[refresh] First chart structure:`, {
       hasChartId: !!charts[0]?.chartId,
-      hasImageUrl: !!charts[0]?.imageUrl,
+      hasChartPayload: !!charts[0]?.chartPayload,
       hasContext: !!charts[0]?.context,
       chartIdType: typeof charts[0]?.chartId,
-      imageUrlType: typeof charts[0]?.imageUrl,
-      imageUrlLength: charts[0]?.imageUrl?.length
+      payloadKeys: charts[0]?.chartPayload ? Object.keys(charts[0].chartPayload) : [],
+      dataPoints: charts[0]?.chartPayload?.data?.length || 0
     });
   }
   
@@ -374,17 +384,19 @@ router.post('/chart-transcription/refresh', async (req, res) => {
     console.log(`[refresh] Chart object:`, {
       chartId: c?.chartId,
       hasImageUrl: !!c?.imageUrl,
+      hasChartPayload: !!c?.chartPayload,
+      dataPoints: c?.chartPayload?.data?.length || 0,
       imageUrlLength: c?.imageUrl?.length,
       context: c?.context
     });
     
-    if (!c?.chartId || !c?.imageUrl) {
-      console.error(`[refresh] ❌ SKIPPING: Invalid chart (missing chartId or imageUrl)`);
+    if (!c?.chartId || (!c?.imageUrl && !c?.chartPayload)) {
+      console.error(`[refresh] ❌ SKIPPING: Invalid chart (missing chartId or input payload)`);
       results.push({ chartId: c?.chartId || 'unknown', status: 'skip-invalid' });
       continue;
     }
 
-    const { chartId, imageUrl, context } = c;
+    const { chartId, imageUrl, context, chartPayload } = c;
 
     try {
       // Add delay between charts (except first)
@@ -394,11 +406,19 @@ router.post('/chart-transcription/refresh', async (req, res) => {
       }
 
       // Always call OpenAI to get new transcription
-      console.log(`[refresh] Chart ${chartId}: 📞 Calling OpenAI Vision API...`);
-      console.log(`[refresh] Chart ${chartId}: Image size: ${imageUrl.length} chars`);
+      if (chartPayload) {
+        console.log(`[refresh] Chart ${chartId}: 📞 Calling OpenAI (JSON payload)...`);
+        console.log(`[refresh] Chart ${chartId}: Data points: ${chartPayload?.data?.length || 0}`);
+      } else {
+        console.log(`[refresh] Chart ${chartId}: 📞 Calling OpenAI Vision API...`);
+        console.log(`[refresh] Chart ${chartId}: Image size: ${imageUrl.length} chars`);
+      }
       console.log(`[refresh] Chart ${chartId}: Context: "${context}"`);
       
       const text = await openaiQueue.enqueue(async () => {
+        if (chartPayload) {
+          return await transcribeChartJson({ chartPayload, context });
+        }
         return await transcribeChartImage({ imageUrl, context });
       });
 
@@ -485,7 +505,7 @@ router.post('/chart-transcription/refresh', async (req, res) => {
 /**
  * POST /api/v1/ai/chart-transcription/:chartId
  * Get-or-create / Update: Checks signature - if changed, calls OpenAI and updates DB.
- * body: { topic?: string, chartData?: any, imageUrl: string, model?: string }
+ * body: { topic?: string, chartData?: any, chartPayload?: any, imageUrl?: string, model?: string }
  * 
  * Logic:
  * 1. Compute chart_signature from chartData
@@ -501,7 +521,7 @@ router.post('/chart-transcription/refresh', async (req, res) => {
  */
 router.post('/chart-transcription/:chartId', async (req, res) => {
   const chartId = req.params.chartId;
-  const { topic, chartData, imageUrl, model = 'gpt-4o-mini' } = req.body || {};
+  const { topic, chartData, chartPayload, imageUrl, model = 'gpt-4o-mini' } = req.body || {};
   
   try {
     console.log(`[POST /chart-transcription/${chartId}] Get-or-create/update request received`);
@@ -518,18 +538,19 @@ router.post('/chart-transcription/:chartId', async (req, res) => {
       });
     }
     
-    if (!imageUrl) {
+    if (!imageUrl && !chartData && !chartPayload) {
       return res.status(400).json({ 
         created: false,
         updated: false,
         chartId,
         transcription_text: null,
-        error: 'imageUrl is required' 
+        error: 'chartPayload or imageUrl is required' 
       });
     }
     
     // Compute signature from chartData (NOT from topic - topic is only for OpenAI context)
-    const signature = computeChartSignature(topic || '', chartData || {});
+    const normalizedChartData = chartPayload || chartData || {};
+    const signature = computeChartSignature(topic || '', normalizedChartData);
     console.log(`[POST /chart-transcription/${chartId}] Computed signature: ${signature.substring(0, 8)}...`);
     
     // Check if transcription already exists
@@ -581,9 +602,20 @@ router.post('/chart-transcription/:chartId', async (req, res) => {
     // Call OpenAI to generate transcription
     // ⚠️ CRITICAL: Use queue to process OpenAI requests sequentially and prevent TPM limit
     console.log(`[POST /chart-transcription/${chartId}] 📞 Calling OpenAI to generate transcription (queued)...`);
-    console.log(`[POST /chart-transcription/${chartId}] Image URL length: ${imageUrl?.length || 0}, Topic: ${topic || 'none'}`);
+    if (normalizedChartData && Object.keys(normalizedChartData).length > 0) {
+      console.log(`[POST /chart-transcription/${chartId}] JSON payload detected with data points: ${normalizedChartData?.data?.length || 0}`);
+    } else {
+      console.log(`[POST /chart-transcription/${chartId}] Image URL length: ${imageUrl?.length || 0}, Topic: ${topic || 'none'}`);
+    }
     
     const transcription_text = await openaiQueue.enqueue(async () => {
+      if (normalizedChartData && Object.keys(normalizedChartData).length > 0) {
+        const payload =
+          normalizedChartData.chartId || normalizedChartData.data
+            ? normalizedChartData
+            : { chartId, title: topic || chartId, data: normalizedChartData };
+        return await transcribeChartJson({ chartPayload: payload, context: topic });
+      }
       return await transcribeChartImage({ imageUrl, context: topic });
     });
     
