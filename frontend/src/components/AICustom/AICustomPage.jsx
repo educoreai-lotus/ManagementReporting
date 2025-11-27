@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { aiCustomAPI } from '../../services/api.js';
 import { BarChart, LineChart, MultiSeriesBarChart, MultiSeriesLineChart } from '../Charts';
@@ -10,6 +10,68 @@ const AICustomPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeechSupported, setIsSpeechSupported] = useState(true);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      setIsSpeechSupported(false);
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setIsSpeechSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'he-IL';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join(' ');
+
+      setUserInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognition && recognition.stop) {
+        recognition.stop();
+      }
+    };
+  }, []);
+
+  const handleToggleListening = () => {
+    if (!recognitionRef.current || !isSpeechSupported) return;
+
+    if (!isListening) {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.error('Failed to start speech recognition:', err);
+      }
+    } else {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
 
   /**
    * Checks if a value is numeric (number or numeric string)
@@ -193,18 +255,39 @@ const AICustomPage = () => {
             <label htmlFor="ai-custom-input" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
               Describe your data insight or custom graph
             </label>
-            <textarea
-              id="ai-custom-input"
-              value={userInput}
-              onChange={(e) => {
-                if (e.target.value.length <= 1000) {
-                  setUserInput(e.target.value);
+            <div className="relative">
+              <textarea
+                id="ai-custom-input"
+                value={userInput}
+                onChange={(e) => {
+                  if (e.target.value.length <= 1000) {
+                    setUserInput(e.target.value);
+                  }
+                }}
+                placeholder="Describe the data insight or custom graph you want..."
+                className="w-full min-h-[150px] p-4 pr-12 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
+                maxLength={1000}
+              />
+              <button
+                type="button"
+                onClick={handleToggleListening}
+                disabled={!isSpeechSupported}
+                className={
+                  'absolute inset-y-0 right-3 my-auto flex h-8 w-8 items-center justify-center rounded-full shadow ' +
+                  (isSpeechSupported ? '' : 'opacity-40 cursor-not-allowed ') +
+                  (isListening ? 'bg-red-500/80 text-white' : 'bg-slate-700 text-white')
                 }
-              }}
-              placeholder="Describe the data insight or custom graph you want..."
-              className="w-full min-h-[150px] p-4 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
-              maxLength={1000}
-            />
+                title={
+                  !isSpeechSupported
+                    ? 'Speech recognition is not supported in this browser'
+                    : isListening
+                    ? 'Click to stop dictation'
+                    : 'Click to start dictation'
+                }
+              >
+                {isListening ? '🎙️' : '🎤'}
+              </button>
+            </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
               Describe the data insight or custom graph you want (up to 1000 characters).
             </p>
