@@ -13,6 +13,30 @@ const AICustomPage = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeechSupported, setIsSpeechSupported] = useState(true);
   const recognitionRef = useRef(null);
+  const [speechStatus, setSpeechStatus] = useState(null);
+  const [speechError, setSpeechError] = useState(null);
+
+  const MAX_INPUT_LENGTH = 1000;
+
+  const appendTranscript = (transcript) => {
+    if (!transcript) return;
+    setUserInput((prev) => {
+      const currentValue = prev || '';
+      const available = MAX_INPUT_LENGTH - currentValue.length;
+      if (available <= 0) {
+        return currentValue;
+      }
+      const trimmedTranscript =
+        transcript.length > available ? transcript.slice(0, available) : transcript;
+      if (!trimmedTranscript.trim()) {
+        return currentValue;
+      }
+      const nextValue = currentValue
+        ? `${currentValue}${currentValue.endsWith(' ') ? '' : ' '}${trimmedTranscript}`.slice(0, MAX_INPUT_LENGTH)
+        : trimmedTranscript;
+      return nextValue;
+    });
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -32,20 +56,28 @@ const AICustomPage = () => {
     recognition.continuous = false;
     recognition.interimResults = false;
 
+    recognition.onstart = () => {
+      setIsListening(true);
+      setSpeechStatus('listening');
+      setSpeechError(null);
+    };
+
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results)
         .map(result => result[0].transcript)
         .join(' ');
 
-      setUserInput(prev => (prev ? `${prev} ${transcript}` : transcript));
+      appendTranscript(transcript);
     };
 
     recognition.onerror = () => {
       setIsListening(false);
+      setSpeechStatus('stopped');
     };
 
     recognition.onend = () => {
       setIsListening(false);
+      setSpeechStatus('stopped');
     };
 
     recognitionRef.current = recognition;
@@ -63,13 +95,17 @@ const AICustomPage = () => {
     if (!isListening) {
       try {
         recognitionRef.current.start();
-        setIsListening(true);
+        setSpeechStatus('starting');
+        setSpeechError(null);
       } catch (err) {
         console.error('Failed to start speech recognition:', err);
+        setSpeechError('Could not access microphone. Please check permissions and try again.');
+        setSpeechStatus('stopped');
       }
     } else {
       recognitionRef.current.stop();
       setIsListening(false);
+      setSpeechStatus('stopped');
     }
   };
 
@@ -266,7 +302,7 @@ const AICustomPage = () => {
                 }}
                 placeholder="Describe the data insight or custom graph you want..."
                 className="w-full min-h-[150px] p-4 pr-16 pb-16 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
-                maxLength={1000}
+                maxLength={MAX_INPUT_LENGTH}
               />
               <button
                 type="button"
@@ -297,6 +333,21 @@ const AICustomPage = () => {
                 </svg>
               </button>
             </div>
+            {!isSpeechSupported && (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
+                Speech recognition is not supported in this browser. Try using the latest version of Chrome.
+              </p>
+            )}
+            {speechStatus === 'listening' && (
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
+                Listening…
+              </p>
+            )}
+            {speechError && (
+              <p className="text-sm text-error-600 dark:text-error-400 mt-2">
+                {speechError}
+              </p>
+            )}
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
               Describe the data insight or custom graph you want (up to 1000 characters).
             </p>
