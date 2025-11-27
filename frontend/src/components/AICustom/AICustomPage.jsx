@@ -39,15 +39,50 @@ const AICustomPage = () => {
       return null;
     }
 
-    const lowerCaseText = text.toLowerCase();
-    const sensitiveKeywords = ['table', 'column', 'schema', 'select', 'from', 'where', 'join', 'sql', 'database', '_'];
-    const containsSensitiveKeyword = sensitiveKeywords.some(keyword => lowerCaseText.includes(keyword));
+    const sensitiveKeywords = [
+      'table',
+      'tables',
+      'column',
+      'columns',
+      'schema',
+      'schemas',
+      'select',
+      'from',
+      'where',
+      'join',
+      'insert',
+      'update',
+      'delete',
+      'sql',
+      'database',
+      'public',
+      'group',
+      'order',
+      'by',
+      'limit'
+    ];
 
-    if (containsSensitiveKeyword) {
-      return 'Insight generated based on your request.';
+    const cleanedWords = text
+      .replace(/["'`]/g, ' ')
+      .split(/\s+/)
+      .filter((word) => {
+        if (!word) return false;
+        const normalized = word.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        if (!normalized) return false;
+        if (sensitiveKeywords.includes(normalized)) return false;
+        if (word.includes('_') || word.includes('.') || word.includes('(') || word.includes(')')) {
+          return false;
+        }
+        return true;
+      });
+
+    const sanitized = cleanedWords.join(' ').trim();
+
+    if (!sanitized || sanitized.length < 5) {
+      return null;
     }
 
-    return text;
+    return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
   };
 
   const appendTranscript = (transcript) => {
@@ -306,7 +341,9 @@ const AICustomPage = () => {
     }
   };
 
-  const safeResultReason = result ? getSafeDescription(result.reason) : null;
+  const safeResultReason =
+    (result ? getSafeDescription(result.reason) : null) ||
+    'This visualization highlights the high-level trends based on your request.';
 
   return (
     <div className="min-h-screen py-8">
