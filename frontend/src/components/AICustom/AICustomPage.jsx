@@ -18,6 +18,22 @@ const AICustomPage = () => {
 
   const MAX_INPUT_LENGTH = 1000;
 
+  const getSafeErrorMessage = (rawMessage) => {
+    if (!rawMessage || typeof rawMessage !== 'string') {
+      return 'Something went wrong while generating your graph. Please try refining your request and try again.';
+    }
+
+    const lowerCaseMessage = rawMessage.toLowerCase();
+    const sensitiveKeywords = ['relation', 'column', 'table', 'schema', 'sql', 'syntax', 'select', 'insert', 'update', 'delete', 'database'];
+    const containsSensitiveKeyword = sensitiveKeywords.some(keyword => lowerCaseMessage.includes(keyword));
+
+    if (containsSensitiveKeyword) {
+      return 'Something went wrong while generating your graph. Please try refining your request and try again.';
+    }
+
+    return rawMessage;
+  };
+
   const appendTranscript = (transcript) => {
     if (!transcript) return;
     setUserInput((prev) => {
@@ -388,7 +404,7 @@ const AICustomPage = () => {
       {error && !loading && (
         <div className="max-w-6xl mx-auto">
           <ErrorMessage 
-            message={error} 
+            message={getSafeErrorMessage(error)} 
             onRetry={handleGenerate}
           />
         </div>
@@ -408,8 +424,18 @@ const AICustomPage = () => {
                 </p>
               )}
               <div className="text-xs text-neutral-500 dark:text-neutral-500 mb-4">
-                <span className="font-semibold">Rows:</span> {result.rowCount} | 
-                <span className="font-semibold ml-2">Columns:</span> {result.columns.map(c => c.name).join(', ')}
+                <span className="font-semibold">Rows:</span>{' '}
+                {typeof result.rowCount === 'number'
+                  ? result.rowCount
+                  : Array.isArray(result.rows)
+                  ? result.rows.length
+                  : 0}
+                {result.columns && result.columns.length > 0 && (
+                  <>
+                    <span className="mx-2">|</span>
+                    <span className="font-semibold">Columns:</span> {result.columns.length}
+                  </>
+                )}
               </div>
             </div>
 
