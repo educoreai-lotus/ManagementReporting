@@ -265,7 +265,7 @@ const AICustomPage = () => {
                   }
                 }}
                 placeholder="Describe the data insight or custom graph you want..."
-                className="w-full min-h-[150px] p-4 pr-12 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
+                className="w-full min-h-[150px] p-4 pr-16 pb-16 border-2 border-neutral-300 dark:border-neutral-600 rounded-lg bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 placeholder-neutral-500 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
                 maxLength={1000}
               />
               <button
@@ -273,9 +273,11 @@ const AICustomPage = () => {
                 onClick={handleToggleListening}
                 disabled={!isSpeechSupported}
                 className={
-                  'absolute inset-y-0 right-3 my-auto flex h-8 w-8 items-center justify-center rounded-full shadow ' +
+                  'absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-full shadow-md transition-colors ' +
                   (isSpeechSupported ? '' : 'opacity-40 cursor-not-allowed ') +
-                  (isListening ? 'bg-red-500/80 text-white' : 'bg-slate-700 text-white')
+                  (isListening
+                    ? 'bg-error-600 hover:bg-error-700 text-white'
+                    : 'bg-primary-600 hover:bg-primary-700 text-neutral-50')
                 }
                 title={
                   !isSpeechSupported
@@ -285,7 +287,14 @@ const AICustomPage = () => {
                     : 'Click to start dictation'
                 }
               >
-                {isListening ? '🎙️' : '🎤'}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="currentColor"
+                >
+                  <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a1 1 0 1 0-2 0 3 3 0 0 1-6 0 1 1 0 1 0-2 0 5 5 0 0 0 4 4.9V18h-2a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.1A5 5 0 0 0 17 11z" />
+                </svg>
               </button>
             </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
