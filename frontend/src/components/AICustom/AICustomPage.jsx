@@ -34,6 +34,22 @@ const AICustomPage = () => {
     return rawMessage;
   };
 
+  const getSafeDescription = (text) => {
+    if (!text || typeof text !== 'string') {
+      return null;
+    }
+
+    const lowerCaseText = text.toLowerCase();
+    const sensitiveKeywords = ['table', 'column', 'schema', 'select', 'from', 'where', 'join', 'sql', 'database', '_'];
+    const containsSensitiveKeyword = sensitiveKeywords.some(keyword => lowerCaseText.includes(keyword));
+
+    if (containsSensitiveKeyword) {
+      return 'Insight generated based on your request.';
+    }
+
+    return text;
+  };
+
   const appendTranscript = (transcript) => {
     if (!transcript) return;
     setUserInput((prev) => {
@@ -418,9 +434,9 @@ const AICustomPage = () => {
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">
                 {result.transformed.kind === 'chart' ? 'AI-Generated Graph' : 'Query Results'}
               </h2>
-              {result.reason && (
+              {getSafeDescription(result.reason) && (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-                  {result.reason}
+                  {getSafeDescription(result.reason)}
                 </p>
               )}
               <div className="text-xs text-neutral-500 dark:text-neutral-500 mb-4">
