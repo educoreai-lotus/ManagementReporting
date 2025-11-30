@@ -133,16 +133,39 @@ jobs:
           fi
           echo "✅ All Vercel secrets are set"
 
+      - name: Debug - Show current directory and files
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "Files in frontend directory:"
+          ls -la frontend/ || echo "Frontend directory not found"
+          echo "Checking if we're in frontend directory (should be):"
+          if [ -f "package.json" ]; then
+            echo "✅ Found package.json - we're in the right directory"
+            cat package.json | head -5
+          else
+            echo "❌ No package.json found - wrong directory!"
+          fi
+
       - name: Pull Vercel environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
+          echo "Current directory: $(pwd)"
+          if [ ! -f "package.json" ]; then
+            echo "❌ Error: Not in frontend directory! Expected package.json not found."
+            exit 1
+          fi
           mkdir -p .vercel
           echo "{\"projectId\":\"$VERCEL_PROJECT_ID\",\"orgId\":\"$VERCEL_ORG_ID\"}" > .vercel/project.json
+          echo "Vercel project.json created:"
+          cat .vercel/project.json
           npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN" || {
             echo "❌ Failed to pull Vercel environment"
+            echo "Exit code: $?"
             exit 1
           }
 
@@ -151,19 +174,27 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
+          echo "Current directory: $(pwd)"
+          echo "Building for production..."
           npx vercel build --prod --token="$VERCEL_TOKEN" || {
             echo "❌ Failed to build for production"
+            echo "Exit code: $?"
             exit 1
           }
+          echo "✅ Build completed successfully"
 
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          echo "Current directory: $(pwd)"
+          echo "Deploying to Vercel..."
           npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" || {
             echo "❌ Failed to deploy to Vercel"
+            echo "Exit code: $?"
             exit 1
           }
+          echo "✅ Deployment completed successfully"
 
       - name: Deployment summary
         run: |
@@ -220,12 +251,37 @@ jobs:
             exit 1
           }
 
+      - name: Debug - Show current directory and files
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "Files in backend directory:"
+          ls -la backend/ || echo "Backend directory not found"
+          echo "Checking if we're in backend directory (should be):"
+          if [ -f "package.json" ]; then
+            echo "✅ Found package.json - we're in the right directory"
+            cat package.json | head -5
+          else
+            echo "❌ No package.json found - wrong directory!"
+          fi
+          echo "Checking for railway.json or railway.toml:"
+          find . -name "railway.*" -o -name ".railway*" 2>/dev/null || echo "No Railway config files found"
+
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up || {
+          echo "Current directory: $(pwd)"
+          if [ ! -f "package.json" ]; then
+            echo "❌ Error: Not in backend directory! Expected package.json not found."
+            exit 1
+          fi
+          echo "Attempting to deploy from: $(pwd)"
+          railway up --verbose || {
             echo "❌ Failed to deploy to Railway"
+            echo "Exit code: $?"
+            railway status || echo "Could not get Railway status"
             exit 1
           }
 
