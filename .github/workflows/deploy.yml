@@ -226,6 +226,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install Railway CLI
         run: npm i -g @railway/cli
 
@@ -278,10 +281,9 @@ jobs:
             exit 1
           fi
           echo "Attempting to deploy from: $(pwd)"
-          railway up --verbose || {
+          railway up || {
             echo "❌ Failed to deploy to Railway"
             echo "Exit code: $?"
-            railway status || echo "Could not get Railway status"
             exit 1
           }
 
