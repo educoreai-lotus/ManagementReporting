@@ -25,26 +25,66 @@ jobs:
             const branch = context.ref.replace('refs/heads/', '');
             console.log(`Checking CI status for branch: ${branch}`);
             
-            const { data: runs } = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'ci.yml',
-              branch: branch,
-              per_page: 1
-            });
+            // Wait for CI to complete (with timeout)
+            const maxAttempts = 30; // 5 minutes max (10 seconds * 30)
+            const waitInterval = 10000; // 10 seconds
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              const { data: runs } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'ci.yml',
+                branch: branch,
+                per_page: 10 // Get more runs to find completed one
+              });
 
-            if (runs.workflow_runs.length === 0) {
-              core.setFailed('No CI runs found. Please ensure CI workflow exists and has run.');
-              return;
+              if (runs.workflow_runs.length === 0) {
+                if (attempt === 0) {
+                  core.setFailed('No CI runs found. Please ensure CI workflow exists and has run.');
+                  return;
+                }
+                // If we've been waiting and suddenly no runs, continue waiting
+                console.log(`Waiting for CI run to appear... (attempt ${attempt + 1}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, waitInterval));
+                continue;
+              }
+
+              // Find the latest completed run
+              const completedRun = runs.workflow_runs.find(run => run.status === 'completed');
+              
+              if (completedRun) {
+                if (completedRun.conclusion === 'success') {
+                  console.log(`✅ CI check passed (run #${completedRun.id})`);
+                  return;
+                } else {
+                  core.setFailed(`CI has not passed. Latest completed run: ${completedRun.conclusion} (run #${completedRun.id})`);
+                  return;
+                }
+              }
+
+              // If no completed run yet, check the latest run status
+              const latestRun = runs.workflow_runs[0];
+              console.log(`CI run #${latestRun.id} is still ${latestRun.status}... (attempt ${attempt + 1}/${maxAttempts})`);
+              
+              // If it's the last attempt and still in progress, check if we can find any successful run
+              if (attempt === maxAttempts - 1) {
+                // Look for any successful completed run (not necessarily the latest)
+                const successfulRun = runs.workflow_runs.find(run => 
+                  run.status === 'completed' && run.conclusion === 'success'
+                );
+                
+                if (successfulRun) {
+                  console.log(`✅ Found successful CI run #${successfulRun.id}`);
+                  return;
+                }
+                
+                core.setFailed(`CI run timed out. Latest run is still ${latestRun.status}. Please wait for CI to complete.`);
+                return;
+              }
+
+              // Wait before next attempt
+              await new Promise(resolve => setTimeout(resolve, waitInterval));
             }
-
-            const latestRun = runs.workflow_runs[0];
-            if (latestRun.status !== 'completed' || latestRun.conclusion !== 'success') {
-              core.setFailed(`CI has not passed. Latest run: ${latestRun.status}/${latestRun.conclusion}`);
-              return;
-            }
-
-            console.log('✅ CI check passed');
 
   deploy_frontend:
     name: Deploy Frontend to Vercel
