@@ -10,6 +10,9 @@ jobs:
   ci_check:
     name: Verify CI passed
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,11 +21,15 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Get branch name from context
+            const branch = context.ref.replace('refs/heads/', '');
+            console.log(`Checking CI status for branch: ${branch}`);
+            
             const { data: runs } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'ci.yml',
-              branch: context.ref.replace('refs/heads/', ''),
+              branch: branch,
               per_page: 1
             });
 
