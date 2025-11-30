@@ -114,26 +114,12 @@ jobs:
         run: npx vercel --version
 
       - name: Check Vercel secrets
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "❌ VERCEL_TOKEN is not set in GitHub secrets"
-            exit 1
-          fi
-          if [ -z "$VERCEL_ORG_ID" ]; then
-            echo "❌ VERCEL_ORG_ID is not set in GitHub secrets"
-            exit 1
-          fi
-          if [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "❌ VERCEL_PROJECT_ID is not set in GitHub secrets"
-            exit 1
-          fi
-          echo "✅ All Vercel secrets are set"
+          echo "✅ All Vercel secrets are set - deployment will proceed"
 
       - name: Debug - Show current directory and files
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         run: |
           echo "Current directory: $(pwd)"
           echo "Files in current directory:"
@@ -149,6 +135,7 @@ jobs:
           fi
 
       - name: Pull Vercel environment
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -170,6 +157,7 @@ jobs:
           }
 
       - name: Build for production
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
@@ -184,6 +172,7 @@ jobs:
           echo "✅ Build completed successfully"
 
       - name: Deploy to Vercel
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -197,9 +186,15 @@ jobs:
           echo "✅ Deployment completed successfully"
 
       - name: Deployment summary
+        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         run: |
           echo "✅ Frontend deployed to Vercel"
           echo "🔗 Check deployment at: https://${{ secrets.VERCEL_PROJECT_ID }}.vercel.app"
+      
+      - name: Skip Vercel deployment
+        if: ${{ secrets.VERCEL_TOKEN == '' || secrets.VERCEL_ORG_ID == '' || secrets.VERCEL_PROJECT_ID == '' }}
+        run: |
+          echo "⏭️ Skipping Vercel deployment - secrets not configured"
 
   deploy_backend:
     name: Deploy Backend to Railway
@@ -236,16 +231,12 @@ jobs:
         run: railway --version
 
       - name: Check Railway secrets
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         run: |
-          if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "❌ RAILWAY_TOKEN is not set in GitHub secrets"
-            exit 1
-          fi
-          echo "✅ Railway token is set"
+          echo "✅ Railway token is set - deployment will proceed"
 
       - name: Login to Railway
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
@@ -255,6 +246,7 @@ jobs:
           }
 
       - name: Debug - Show current directory and files
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         run: |
           echo "Current directory: $(pwd)"
           echo "Files in current directory:"
@@ -272,6 +264,7 @@ jobs:
           find . -name "railway.*" -o -name ".railway*" 2>/dev/null || echo "No Railway config files found"
 
       - name: Deploy to Railway
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
@@ -288,10 +281,16 @@ jobs:
           }
 
       - name: Verify deployment
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         continue-on-error: true
         run: |
           echo "✅ Backend deployed to Railway"
           echo "🔗 Check health endpoint at your Railway URL/health"
+      
+      - name: Skip Railway deployment
+        if: ${{ secrets.RAILWAY_TOKEN == '' }}
+        run: |
+          echo "⏭️ Skipping Railway deployment - RAILWAY_TOKEN not configured"
 
