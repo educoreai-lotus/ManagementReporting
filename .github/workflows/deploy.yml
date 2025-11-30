@@ -113,6 +113,26 @@ jobs:
       - name: Verify Vercel CLI
         run: npx vercel --version
 
+      - name: Check Vercel secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "❌ VERCEL_TOKEN is not set in GitHub secrets"
+            exit 1
+          fi
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "❌ VERCEL_ORG_ID is not set in GitHub secrets"
+            exit 1
+          fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "❌ VERCEL_PROJECT_ID is not set in GitHub secrets"
+            exit 1
+          fi
+          echo "✅ All Vercel secrets are set"
+
       - name: Pull Vercel environment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -121,20 +141,29 @@ jobs:
         run: |
           mkdir -p .vercel
           echo "{\"projectId\":\"$VERCEL_PROJECT_ID\",\"orgId\":\"$VERCEL_ORG_ID\"}" > .vercel/project.json
-          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx vercel pull --yes --environment=production --token="$VERCEL_TOKEN" || {
+            echo "❌ Failed to pull Vercel environment"
+            exit 1
+          }
 
       - name: Build for production
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
-          npx vercel build --prod --token="$VERCEL_TOKEN"
+          npx vercel build --prod --token="$VERCEL_TOKEN" || {
+            echo "❌ Failed to build for production"
+            exit 1
+          }
 
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          npx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN" || {
+            echo "❌ Failed to deploy to Vercel"
+            exit 1
+          }
 
       - name: Deployment summary
         run: |
@@ -172,17 +201,33 @@ jobs:
       - name: Verify Railway CLI
         run: railway --version
 
+      - name: Check Railway secrets
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "❌ RAILWAY_TOKEN is not set in GitHub secrets"
+            exit 1
+          fi
+          echo "✅ Railway token is set"
+
       - name: Login to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway login --token "$RAILWAY_TOKEN"
+          railway login --token "$RAILWAY_TOKEN" || {
+            echo "❌ Failed to login to Railway"
+            exit 1
+          }
 
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up
+          railway up || {
+            echo "❌ Failed to deploy to Railway"
+            exit 1
+          }
 
       - name: Verify deployment
         env:
