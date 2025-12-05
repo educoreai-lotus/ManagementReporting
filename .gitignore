@@ -57,3 +57,8 @@ backend/logs/
 DB/data/
 DB/logs/
 
+# Security keys (DO NOT COMMIT)
+*-private-key.pem
+*-public-key.pem
+managementreporting-*.pem
+

@@ -16,6 +16,7 @@ import { rateLimiter } from './presentation/middleware/rateLimiter.js';
 import { initializeJobs } from './infrastructure/jobs/index.js';
 import runMigration from '../scripts/runMigration.js';
 import seedMockData, { isDatabaseEmpty } from './infrastructure/seedMockData.js';
+import { registerService } from './registration/register.js';
 
 dotenv.config();
 
@@ -145,6 +146,13 @@ app.listen(PORT, () => {
         console.warn('[Startup] 💡 To fix permissions manually, run DB/fix_ai_chart_transcriptions_permissions.sql in Supabase SQL Editor');
         // Don't block startup - this is optional
       }
+    }
+    
+    // Register service with Coordinator (non-blocking)
+    try {
+      await registerService();
+    } catch (regErr) {
+      console.error('[Startup] Service registration error (non-fatal):', regErr.message);
     }
     
     // Initialize scheduled jobs (async - loads initial mock data in development) - non-blocking
