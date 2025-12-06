@@ -30,7 +30,7 @@ describe('preferences', () => {
     });
 
     it('should return default theme when not set', () => {
-      browserCache.getPreference.mockReturnValue(null);
+      browserCache.getPreference.mockImplementation((key, defaultValue) => defaultValue);
       expect(preferences.getTheme()).toBe('light');
     });
   });
@@ -64,7 +64,7 @@ describe('preferences', () => {
     });
 
     it('should return default date range when not set', () => {
-      browserCache.getPreference.mockReturnValue(null);
+      browserCache.getPreference.mockImplementation((key, defaultValue) => defaultValue);
       const result = preferences.getDateRange();
       
       expect(result).toHaveProperty('start');

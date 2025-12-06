@@ -84,6 +84,8 @@ export const getColorForIndex = (index, baseColor = null) => {
   return DIVERSE_COLORS[index % DIVERSE_COLORS.length];
 };
 
+export { DIVERSE_COLORS };
+
 export default {
   generateDiverseColorPalette,
   generateGradientColorPalette,
