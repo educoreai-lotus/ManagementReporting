@@ -1,0 +1,73 @@
+{
+  "dashboardCharts": [
+    {
+      "id": "chart-1",
+      "title": "Course Completion Rate",
+      "type": "bar",
+      "data": [
+        { "name": "January", "value": 75 },
+        { "name": "February", "value": 82 },
+        { "name": "March", "value": 88 }
+      ],
+      "metadata": {
+        "xAxisLabel": "Month",
+        "yAxisLabel": "Completion %",
+        "description": "Monthly course completion statistics"
+      }
+    },
+    {
+      "id": "chart-2",
+      "title": "User Engagement",
+      "type": "line",
+      "data": [
+        { "name": "Week 1", "value": 120 },
+        { "name": "Week 2", "value": 135 },
+        { "name": "Week 3", "value": 150 },
+        { "name": "Week 4", "value": 145 }
+      ],
+      "metadata": {
+        "xAxisLabel": "Week",
+        "yAxisLabel": "Active Users"
+      }
+    },
+    {
+      "id": "chart-3",
+      "title": "Average Rating",
+      "type": "pie",
+      "data": [
+        { "name": "Excellent", "value": 45 },
+        { "name": "Good", "value": 35 },
+        { "name": "Average", "value": 15 },
+        { "name": "Poor", "value": 5 }
+      ]
+    },
+    {
+      "id": "chart-4",
+      "title": "Total Enrollments",
+      "type": "area",
+      "data": [
+        { "name": "Q1", "value": 500 },
+        { "name": "Q2", "value": 650 },
+        { "name": "Q3", "value": 720 },
+        { "name": "Q4", "value": 800 }
+      ]
+    }
+  ],
+  "chartDetail": {
+    "id": "chart-1",
+    "title": "Course Completion Rate",
+    "type": "bar",
+    "data": [
+      { "name": "January", "value": 75 },
+      { "name": "February", "value": 82 },
+      { "name": "March", "value": 88 },
+      { "name": "April", "value": 91 }
+    ],
+    "metadata": {
+      "xAxisLabel": "Month",
+      "yAxisLabel": "Completion %",
+      "description": "Detailed monthly course completion statistics showing steady improvement"
+    }
+  }
+}
+

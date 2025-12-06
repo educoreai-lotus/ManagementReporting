@@ -1,0 +1,83 @@
+{
+  "reportTypes": [
+    {
+      "id": "monthly-performance",
+      "name": "Monthly Learning Performance Report",
+      "description": "Comprehensive monthly analysis of learning outcomes, completion rates, and engagement metrics"
+    },
+    {
+      "id": "course-completion",
+      "name": "Course Completion Analysis",
+      "description": "Detailed breakdown of course participation, completion rates, and learner progress"
+    },
+    {
+      "id": "user-engagement",
+      "name": "User Engagement Summary",
+      "description": "Analysis of user engagement patterns by course, organization, and time period"
+    },
+    {
+      "id": "organizational-benchmark",
+      "name": "Organizational Benchmark Report",
+      "description": "Cross-organization performance comparison and benchmarking"
+    },
+    {
+      "id": "learning-roi",
+      "name": "Learning ROI Report",
+      "description": "Training investment return analysis and cost-effectiveness metrics"
+    },
+    {
+      "id": "skill-gap-analysis",
+      "name": "Skill Gap Analysis Report",
+      "description": "Identification of skill gaps across teams, departments, and organizations"
+    },
+    {
+      "id": "compliance-certification",
+      "name": "Compliance & Certification Tracking Report",
+      "description": "Monitoring of learning compliance, certification status, and regulatory requirements"
+    },
+    {
+      "id": "performance-trend",
+      "name": "Performance Trend Analysis",
+      "description": "Long-term analysis of learning efficiency trends and patterns"
+    }
+  ],
+  "sampleReport": {
+    "reportId": "report-123",
+    "type": "monthly-performance",
+    "generatedAt": "2024-01-15T10:00:00Z",
+    "executiveSummary": {
+      "title": "Monthly Performance Summary",
+      "keyFindings": [
+        "Course completion rates increased by 12%",
+        "User engagement reached new highs",
+        "Technical courses showed highest satisfaction"
+      ]
+    },
+    "charts": [
+      {
+        "id": "report-chart-1",
+        "title": "Course Completion Rate",
+        "type": "bar",
+        "data": [
+          { "name": "Jan", "value": 75 },
+          { "name": "Feb", "value": 82 },
+          { "name": "Mar", "value": 88 }
+        ]
+      },
+      {
+        "id": "report-chart-2",
+        "title": "User Engagement",
+        "type": "line",
+        "data": [
+          { "name": "Week 1", "value": 120 },
+          { "name": "Week 2", "value": 135 },
+          { "name": "Week 3", "value": 150 }
+        ]
+      }
+    ],
+    "aiInsights": {
+      "insights": "The data shows a positive trend in both course completion and user engagement. The 12% increase in completion rates suggests that recent course improvements are effective. Technical courses continue to perform well, indicating strong content quality."
+    }
+  }
+}
+

@@ -1,0 +1,7 @@
+{
+  "email": "test@example.com",
+  "name": "Test User",
+  "role": "System Administrator",
+  "token": "test-token-for-e2e-testing"
+}
+
