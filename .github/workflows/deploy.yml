@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    branches:
+      - main
+
+jobs:
+  deploy_frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    # Only deploy if CI workflow succeeded
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        # Deploy to Vercel production
+        # Uses VERCEL_TOKEN from GitHub secrets
+        # Project will be auto-detected if linked to this repository
+        # Otherwise, use VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            vercel --prod --token "$VERCEL_TOKEN" --yes
+          else
+            echo "ERROR: VERCEL_TOKEN secret is not set. Please configure it in GitHub Settings → Secrets → Actions"
+            exit 1
+          fi
+
+  deploy_backend:
+    name: Deploy Backend to Railway
+    runs-on: ubuntu-latest
+    # Only deploy if CI workflow succeeded
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@latest
+
+      - name: Deploy to Railway
+        # Deploy backend to Railway
+        # Uses RAILWAY_TOKEN from GitHub secrets
+        # Railway will auto-detect the service if linked to this repository
+        # If service is not linked, you may need to set RAILWAY_SERVICE_ID secret
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "ERROR: RAILWAY_TOKEN secret is not set. Please configure it in GitHub Settings → Secrets → Actions"
+            exit 1
+          fi
+          
+          # Login to Railway using token
+          railway login --token "$RAILWAY_TOKEN"
+          
+          # Deploy to Railway
+          # If RAILWAY_SERVICE_ID is set, use it; otherwise Railway will auto-detect from railway.json
+          if [ -n "$RAILWAY_SERVICE_ID" ]; then
+            railway up --service "$RAILWAY_SERVICE_ID"
+          else
+            railway up
+          fi
+
