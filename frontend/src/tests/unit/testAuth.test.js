@@ -13,8 +13,7 @@ import {
 
 describe('testAuth', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
-    localStorage.clear();
+    // localStorage is already cleared in setupTests.js
     // Reset module state by clearing token
     clearTestToken();
   });

@@ -8,9 +8,7 @@ import { browserCache } from '../../services/cache.js';
 
 describe('browserCache', () => {
   beforeEach(() => {
-    // Clear storage before each test
-    localStorage.clear();
-    sessionStorage.clear();
+    // localStorage and sessionStorage are already cleared in setupTests.js
   });
 
   describe('setPreference / getPreference', () => {

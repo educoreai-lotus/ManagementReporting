@@ -37,7 +37,7 @@ vi.mock('axios', () => {
 describe('API Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
+    // localStorage is already cleared in setupTests.js
   });
 
   describe('dashboardAPI', () => {
