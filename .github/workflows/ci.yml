@@ -35,9 +35,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Run tests (if available)
-        continue-on-error: true
-        run: npm test || echo "Test script not found, skipping..."
+      - name: Run frontend tests
+        # Run Vitest in CI mode (--run flag ensures tests run once and exit)
+        # This includes: unit tests, component tests, and integration tests
+        run: npm test -- --run
 
       - name: Upload build artifacts
         if: success()
@@ -76,9 +77,10 @@ jobs:
         continue-on-error: true
         run: npm run build || echo "Build script not found, skipping..."
 
-      - name: Run tests
-        continue-on-error: true
-        run: npm test || echo "Tests failed or no tests found, continuing..."
+      - name: Run backend tests
+        # Run Jest unit and integration tests
+        # Tests will fail the build if they fail
+        run: npm test
 
       - name: Test health endpoint (if server starts)
         continue-on-error: true
@@ -87,3 +89,174 @@ jobs:
           sleep 5
           curl -f http://localhost:3000/health || echo "Health check skipped"
 
+  e2e_tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    # E2E tests depend on frontend build being successful
+    needs: [frontend_ci]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          # Note: No npm cache for root since package-lock.json may not exist
+
+      - name: Install root dependencies
+        # Install Playwright and E2E test dependencies from root package.json
+        # Using npm install since package-lock.json may not exist at root
+        run: npm install
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+
+      - name: Install Playwright browsers
+        # Install Chromium browser for E2E tests
+        # --with-deps installs system dependencies required by Playwright
+        # Cache is restored above, so this will be fast if browsers are cached
+        run: npx playwright install --with-deps chromium
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Start frontend dev server
+        working-directory: frontend
+        # Start Vite dev server in background for E2E tests
+        # Tests will connect to http://localhost:5173
+        run: |
+          npm run dev > /dev/null 2>&1 &
+          echo $! > /tmp/frontend-server.pid
+        
+      - name: Wait for frontend server
+        # Wait for frontend dev server to be ready
+        run: |
+          echo "Waiting for frontend server to start..."
+          timeout 60 bash -c 'until curl -f http://localhost:5173 > /dev/null 2>&1; do sleep 2; done'
+          echo "Frontend server is ready"
+
+      - name: Run E2E tests
+        # Run Playwright E2E tests
+        # All API calls are mocked, so no backend is required
+        # Tests will fail the build if any test fails
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+
+  deploy_frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    # Only deploy on main branch and if all CI tests pass
+    if: github.ref == 'refs/heads/main' && needs.frontend_ci == 'success' && needs.backend_ci == 'success' && needs.e2e_tests == 'success'
+    needs: [frontend_ci, backend_ci, e2e_tests]
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel
+        # Deploy to Vercel production
+        # Uses VERCEL_TOKEN from GitHub secrets
+        # Project will be auto-detected if linked to this repository
+        # Otherwise, use VERCEL_ORG_ID and VERCEL_PROJECT_ID secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ]; then
+            vercel --prod --token "$VERCEL_TOKEN" --yes
+          else
+            echo "ERROR: VERCEL_TOKEN secret is not set. Please configure it in GitHub Settings → Secrets → Actions"
+            exit 1
+          fi
+
+  deploy_backend:
+    name: Deploy Backend to Railway
+    runs-on: ubuntu-latest
+    # Only deploy on main branch and if all CI tests pass
+    if: github.ref == 'refs/heads/main' && needs.frontend_ci == 'success' && needs.backend_ci == 'success' && needs.e2e_tests == 'success'
+    needs: [frontend_ci, backend_ci, e2e_tests]
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@latest
+
+      - name: Deploy to Railway
+        # Deploy backend to Railway
+        # Uses RAILWAY_TOKEN from GitHub secrets
+        # Railway will auto-detect the service if linked to this repository
+        # If service is not linked, you may need to set RAILWAY_SERVICE_ID secret
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "ERROR: RAILWAY_TOKEN secret is not set. Please configure it in GitHub Settings → Secrets → Actions"
+            exit 1
+          fi
+          
+          # Login to Railway using token
+          railway login --token "$RAILWAY_TOKEN"
+          
+          # Deploy to Railway
+          # If RAILWAY_SERVICE_ID is set, use it; otherwise Railway will auto-detect from railway.json
+          if [ -n "$RAILWAY_SERVICE_ID" ]; then
+            railway up --service "$RAILWAY_SERVICE_ID"
+          else
+            railway up
+          fi
