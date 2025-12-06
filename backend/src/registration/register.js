@@ -164,9 +164,21 @@ async function registerWithCoordinator() {
 /**
  * Register service on startup
  * This function is non-blocking and will not crash the service if registration fails
+ * Skips registration if SERVICE_ID environment variable is set (service already registered)
  */
 export async function registerService() {
   try {
+    // Check if service is already registered (SERVICE_ID exists)
+    const existingServiceId = process.env.SERVICE_ID;
+    if (existingServiceId) {
+      console.log('[Registration] ⏭️  Service already registered, skipping registration', {
+        serviceId: existingServiceId,
+        serviceName: SERVICE_NAME,
+      });
+      console.log('[Registration] ℹ️  To re-register, remove SERVICE_ID environment variable');
+      return;
+    }
+
     console.log('[Registration] 🚀 Starting service registration...');
     const result = await registerWithCoordinator();
 
@@ -176,6 +188,9 @@ export async function registerService() {
       });
     } else {
       console.log('[Registration] ✅ Service registration completed successfully');
+      console.log('[Registration] 💡 To prevent re-registration on next startup, set SERVICE_ID environment variable:', {
+        SERVICE_ID: result.serviceId,
+      });
     }
   } catch (error) {
     console.error('[Registration] ❌ Unexpected error during service registration', {
