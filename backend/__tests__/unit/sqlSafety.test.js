@@ -24,7 +24,7 @@ describe('validateSqlSafety', () => {
   });
 
   test('should reject empty or null SQL', () => {
-    expect(validateSqlSafety('')).toEqual({ valid: false, error: 'SQL query cannot be empty' });
+    expect(validateSqlSafety('')).toEqual({ valid: false, error: 'SQL query must be a non-empty string' });
     expect(validateSqlSafety(null)).toEqual({ valid: false, error: 'SQL query must be a non-empty string' });
     expect(validateSqlSafety(undefined)).toEqual({ valid: false, error: 'SQL query must be a non-empty string' });
   });
