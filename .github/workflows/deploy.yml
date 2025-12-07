@@ -81,18 +81,25 @@ jobs:
         run: npm install -g @railway/cli@latest
 
       - name: Deploy to Railway
-        # uses only RAILWAY_TOKEN; Railway will auto-detect the service
+        # uses RAILWAY_TOKEN and optionally RAILWAY_SERVICE_ID
+        # Railway will auto-detect the service if RAILWAY_SERVICE_ID is not provided
         continue-on-error: true
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "⚠️ No RAILWAY_TOKEN provided — skipping deploy (Railway will auto-deploy from GitHub)."
             exit 0
           fi
           
-          railway login --token "$RAILWAY_TOKEN" || \
+          echo "$RAILWAY_TOKEN" | railway login --browserless || \
             echo "⚠️ Railway login failed, falling back to Railway auto-deploy."
-
-          railway up --production || \
-            echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
+          
+          if [ -n "$RAILWAY_SERVICE_ID" ]; then
+            railway up --service "$RAILWAY_SERVICE_ID" || \
+              echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
+          else
+            railway up || \
+              echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
+          fi
