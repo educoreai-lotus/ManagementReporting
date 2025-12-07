@@ -52,7 +52,7 @@ jobs:
             exit 0
           fi
 
-          vercel link --project "$VERCEL_PROJECT_ID" --org "$VERCEL_ORG_ID" --yes --token "$VERCEL_TOKEN"
+          vercel link --yes --token "$VERCEL_TOKEN"
 
           vercel --prod --token "$VERCEL_TOKEN" --yes || \
             echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy."
