@@ -3,33 +3,31 @@ name: Deploy
 on:
   workflow_run:
     workflows: ["CI"]
-    types:
-      - completed
-    branches:
-      - main
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy_frontend:
     name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
-    # Only deploy if CI workflow succeeded
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
-    # Job never fails - if deploy fails, falls back to Vercel auto-deploy
+    # only run if CI succeeded or manual dispatch
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # do not fail the whole workflow if deploy fails
     continue-on-error: true
     defaults:
       run:
         working-directory: frontend
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
@@ -42,9 +40,7 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel
-        # Deploy to Vercel production
-        # If VERCEL_TOKEN is missing or deploy fails, print warning and continue
-        # Falls back to Vercel auto-deploy
+        # uses the secrets already defined in the repo
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -52,56 +48,51 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "⚠️ No VERCEL_TOKEN provided — skipping deploy (fallback: Vercel auto deploy)"
-          else
-            vercel --prod --token "$VERCEL_TOKEN" --yes || echo "⚠️ Deploy failed, falling back to Vercel auto deploy"
+            echo "⚠️ No VERCEL_TOKEN provided — skipping deploy (Vercel will auto-deploy from GitHub)."
+            exit 0
           fi
+
+          vercel --prod --token "$VERCEL_TOKEN" --yes || \
+            echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy."
 
   deploy_backend:
     name: Deploy Backend to Railway
     runs-on: ubuntu-latest
-    # Only deploy if CI workflow succeeded
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
-    # Job never fails - if deploy fails, falls back to Railway auto-deploy
+    # only run if CI succeeded or manual dispatch
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # do not fail the whole workflow if deploy fails
     continue-on-error: true
     defaults:
       run:
         working-directory: backend
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: backend/package-lock.json
 
       - name: Install Railway CLI
         run: npm install -g @railway/cli@latest
 
       - name: Deploy to Railway
-        # Deploy backend to Railway
-        # If RAILWAY_TOKEN is missing, login fails, or deploy fails, print warning and continue
-        # Falls back to Railway auto-deploy
+        # uses only RAILWAY_TOKEN; Railway will auto-detect the service
         continue-on-error: true
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "⚠️ No RAILWAY_TOKEN provided — skipping deploy (fallback: Railway auto deploy)"
-          else
-            # Login to Railway using token
-            railway login --token "$RAILWAY_TOKEN" || echo "⚠️ Railway login failed, falling back to Railway auto deploy"
-            
-            # Deploy to Railway
-            # If RAILWAY_SERVICE_ID is set, use it; otherwise Railway will auto-detect from railway.json
-            if [ -n "$RAILWAY_SERVICE_ID" ]; then
-              railway up --service "$RAILWAY_SERVICE_ID" || echo "⚠️ Deploy failed, falling back to Railway auto deploy"
-            else
-              railway up || echo "⚠️ Deploy failed, falling back to Railway auto deploy"
-            fi
+            echo "⚠️ No RAILWAY_TOKEN provided — skipping deploy (Railway will auto-deploy from GitHub)."
+            exit 0
           fi
+          
+          railway login --token "$RAILWAY_TOKEN" || \
+            echo "⚠️ Railway login failed, falling back to Railway auto-deploy."
+
+          railway up --production || \
+            echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
