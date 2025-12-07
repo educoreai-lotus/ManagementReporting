@@ -34,6 +34,17 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Debug package.json
+        working-directory: ./frontend
+        run: |
+          echo "PWD: $(pwd)"
+          echo "Listing files:"
+          ls -al
+          echo "Showing package.json:"
+          cat package.json
+          echo "NPM scripts detected:"
+          npm run
+
       - name: Run frontend tests
         working-directory: ./frontend
         # Run Vitest in CI mode (run command ensures tests run once and exit)
