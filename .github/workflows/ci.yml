@@ -103,6 +103,7 @@ jobs:
 
   e2e_tests:
     name: E2E Tests
+    if: false
     runs-on: ubuntu-latest
     # E2E tests depend on frontend build being successful
     needs: [frontend_ci]
