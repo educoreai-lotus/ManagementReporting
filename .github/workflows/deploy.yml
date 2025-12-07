@@ -40,22 +40,14 @@ jobs:
         run: npm install -g vercel@latest
 
       - name: Deploy to Vercel
-        # uses the secrets already defined in the repo
         continue-on-error: true
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "⚠️ No VERCEL_TOKEN provided — skipping deploy (Vercel will auto-deploy from GitHub)."
-            exit 0
-          fi
-
-          vercel link --yes --token "$VERCEL_TOKEN"
-
-          vercel --prod --token "$VERCEL_TOKEN" --yes || \
-            echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy."
+          vercel deploy --prod \
+            --token "${{ secrets.VERCEL_TOKEN }}" \
+            --project "${{ secrets.VERCEL_PROJECT_ID }}" \
+            --org "${{ secrets.VERCEL_ORG_ID }}" \
+            --cwd frontend \
+            --yes || echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy"
 
   deploy_backend:
     name: Deploy Backend to Railway
