@@ -154,6 +154,17 @@ app.listen(PORT, () => {
     } catch (regErr) {
       console.error('[Startup] Service registration error (non-fatal):', regErr.message);
     }
+
+    // Upload migration file to Coordinator if service is registered (non-blocking)
+    if (process.env.SERVICE_ID && process.env.COORDINATOR_API_URL && process.env.MR_PRIVATE_KEY) {
+      try {
+        const { uploadMigrationOnStartup } = await import('../scripts/uploadMigration.js');
+        await uploadMigrationOnStartup();
+      } catch (importErr) {
+        // Script might not be available - that's OK, user can run manually
+        console.log('[Startup] ℹ️  Migration upload: Run manually with "npm run upload-migration"');
+      }
+    }
     
     // Initialize scheduled jobs (async - loads initial mock data in development) - non-blocking
     try {

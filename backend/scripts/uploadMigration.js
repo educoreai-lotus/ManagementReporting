@@ -481,27 +481,103 @@ const payload = {
 };
 
 /**
+ * Check service status before uploading migration
+ */
+async function checkServiceStatus() {
+  try {
+    const url = `${cleanCoordinatorUrl}/register/${SERVICE_ID}`;
+    console.log('🔍 Checking current service status...');
+    console.log(`   GET ${url}`);
+    
+    const response = await axios.get(url, {
+      headers: {
+        'X-Service-Name': SERVICE_NAME
+      },
+      timeout: 10000
+    });
+    
+    if (response.data && response.data.status) {
+      return response.data.status;
+    }
+    return null;
+  } catch (error) {
+    // If service doesn't exist or endpoint not available, continue with upload
+    if (error.response && error.response.status === 404) {
+      console.log('   ℹ️  Service not found or status endpoint not available - will proceed with upload');
+      return null;
+    }
+    console.log('   ⚠️  Could not check status - will proceed with upload');
+    return null;
+  }
+}
+
+/**
  * Upload migration file to Coordinator
  */
 async function uploadMigration() {
   try {
-    console.log('📤 Uploading migration file to Coordinator...');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📤 UPLOADING MIGRATION FILE TO COORDINATOR');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('');
+    console.log('📋 Configuration:');
     console.log(`   Service ID: ${SERVICE_ID}`);
     console.log(`   Service Name: ${SERVICE_NAME}`);
     console.log(`   Coordinator URL: ${cleanCoordinatorUrl}`);
     console.log('');
 
+    // Check if service is already active
+    const currentStatus = await checkServiceStatus();
+    if (currentStatus === 'active') {
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ SERVICE IS ALREADY ACTIVE');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('');
+      console.log('ℹ️  Your service is already registered and active.');
+      console.log('   Migration file has already been uploaded.');
+      console.log('');
+      console.log('💡 To update the migration file, you can:');
+      console.log('   1. Wait for the service to be deactivated');
+      console.log('   2. Or contact the Coordinator administrator');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ SKIPPING UPLOAD - Service already active');
+      console.log('═══════════════════════════════════════════════════════════');
+      return { success: true, status: 'active', message: 'Service already active - upload skipped' };
+    } else if (currentStatus) {
+      console.log(`   Current Status: ${currentStatus}`);
+      console.log('   Proceeding with migration upload...');
+      console.log('');
+    } else {
+      console.log('   Status check unavailable - proceeding with upload...');
+      console.log('');
+    }
+    console.log('📊 Migration File Summary:');
+    console.log(`   Version: ${migrationFile.version}`);
+    console.log(`   Capabilities: ${migrationFile.capabilities.length} items`);
+    console.log(`   API Endpoints: ${migrationFile.api.endpoints.length} endpoints`);
+    console.log(`   Database Tables: ${migrationFile.database.tables.length} tables`);
+    console.log(`   Dependencies: ${migrationFile.dependencies.length} services`);
+    console.log('');
+
     // Generate signature
-    console.log('🔐 Generating signature...');
+    console.log('🔐 Generating ECDSA signature...');
     const signature = generateSignature(SERVICE_NAME, PRIVATE_KEY, payload);
-    console.log('   ✅ Signature generated');
+    console.log(`   ✅ Signature generated (length: ${signature.length} chars)`);
     console.log('');
 
     // Prepare request
     const url = `${cleanCoordinatorUrl}/register/${SERVICE_ID}/migration`;
-    console.log(`📡 Sending POST request to: ${url}`);
+    console.log('📡 Preparing HTTP request...');
+    console.log(`   Method: POST`);
+    console.log(`   URL: ${url}`);
+    console.log(`   Headers: Content-Type, X-Service-Name, X-Signature`);
     console.log('');
 
+    console.log('⏳ Sending request to Coordinator...');
+    const startTime = Date.now();
+    
     const response = await axios.post(
       url,
       payload,
@@ -515,51 +591,160 @@ async function uploadMigration() {
       }
     );
 
-    console.log('✅ Migration uploaded successfully!');
-    console.log('');
-    console.log('Response:', JSON.stringify(response.data, null, 2));
+    const duration = Date.now() - startTime;
+    console.log(`   ✅ Request completed in ${duration}ms`);
     console.log('');
 
-    if (response.data.success && response.data.status === 'active') {
-      console.log('🎉 Service is now ACTIVE and available for AI routing!');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('✅ MIGRATION UPLOAD SUCCESSFUL!');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('');
+    console.log('📥 Response from Coordinator:');
+    console.log(JSON.stringify(response.data, null, 2));
+    console.log('');
+
+    // Check response details
+    if (response.data.success) {
+      console.log('✅ Success flag: TRUE');
+    } else {
+      console.log('⚠️  Success flag: FALSE (but request completed)');
     }
+
+    if (response.data.status) {
+      console.log(`📊 Service Status: ${response.data.status}`);
+      
+      if (response.data.status === 'active') {
+        console.log('');
+        console.log('🎉🎉🎉 SERVICE IS NOW ACTIVE! 🎉🎉🎉');
+        console.log('');
+        console.log('✨ Your service is now:');
+        console.log('   • Registered with Coordinator');
+        console.log('   • Migration file uploaded');
+        console.log('   • Status: ACTIVE');
+        console.log('   • Available for AI routing');
+        console.log('');
+      } else if (response.data.status === 'pending_migration') {
+        console.log('');
+        console.log('⚠️  Service status is still: pending_migration');
+        console.log('   This might indicate an issue with the migration file.');
+        console.log('');
+      }
+    }
+
+    if (response.data.serviceId) {
+      console.log(`🆔 Service ID: ${response.data.serviceId}`);
+    }
+
+    if (response.data.message) {
+      console.log(`💬 Message: ${response.data.message}`);
+    }
+
+    // Check response headers
+    if (response.headers['x-service-name']) {
+      console.log(`📋 Coordinator Service: ${response.headers['x-service-name']}`);
+    }
+
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('✅ UPLOAD COMPLETED SUCCESSFULLY');
+    console.log('═══════════════════════════════════════════════════════════');
 
     return response.data;
   } catch (error) {
-    console.error('❌ Migration upload failed:');
-    console.error('');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('❌ MIGRATION UPLOAD FAILED');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('');
 
     if (error.response) {
-      console.error(`   Status: ${error.response.status}`);
-      console.error(`   Status Text: ${error.response.statusText}`);
+      // Server responded with error status
+      console.error('📡 Server Response Error:');
+      console.error(`   HTTP Status: ${error.response.status} ${error.response.statusText}`);
       console.error('');
-      console.error('   Response Data:');
-      console.error(JSON.stringify(error.response.data, null, 2));
+      
+      if (error.response.data) {
+        console.error('📄 Response Body:');
+        console.error(JSON.stringify(error.response.data, null, 2));
+        console.error('');
+      }
+
+      // Provide helpful error messages
+      if (error.response.status === 400) {
+        console.error('💡 Possible causes:');
+        console.error('   • Missing or invalid migrationFile in payload');
+        console.error('   • Invalid migration file structure');
+        console.error('   • Missing required fields (version, etc.)');
+      } else if (error.response.status === 401) {
+        console.error('💡 Possible causes:');
+        console.error('   • Missing X-Service-Name or X-Signature headers');
+        console.error('   • Invalid signature (wrong private key)');
+        console.error('   • Service name mismatch');
+      } else if (error.response.status === 404) {
+        console.error('💡 Possible causes:');
+        console.error(`   • Service ID not found: ${SERVICE_ID}`);
+        console.error('   • Service was not registered in Stage 1');
+        console.error('   • Wrong Coordinator URL');
+      } else if (error.response.status === 500) {
+        console.error('💡 Possible causes:');
+        console.error('   • Coordinator internal error');
+        console.error('   • Database issue on Coordinator side');
+      }
     } else if (error.request) {
-      console.error('   No response received from server');
+      // Request was made but no response received
+      console.error('📡 Network Error:');
+      console.error('   No response received from Coordinator');
+      console.error('');
+      console.error('💡 Possible causes:');
+      console.error(`   • Coordinator URL unreachable: ${cleanCoordinatorUrl}`);
+      console.error('   • Network connectivity issue');
+      console.error('   • Firewall blocking the request');
+      console.error('   • Coordinator service is down');
+      console.error('');
       console.error(`   Error: ${error.message}`);
     } else {
-      console.error(`   Error: ${error.message}`);
+      // Error setting up the request
+      console.error('❌ Request Setup Error:');
+      console.error(`   ${error.message}`);
     }
 
     console.error('');
-    console.error('Stack trace:');
+    console.error('🔍 Full Error Details:');
     console.error(error.stack);
+    console.error('');
+    console.error('═══════════════════════════════════════════════════════════');
 
     process.exit(1);
   }
 }
 
-// Run the upload
-uploadMigration()
-  .then(() => {
-    console.log('');
-    console.log('✅ Script completed successfully');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('');
-    console.error('❌ Script failed:', error.message);
-    process.exit(1);
-  });
+/**
+ * Upload migration on startup (called from server.js)
+ * This function can be imported and called from server startup
+ */
+export async function uploadMigrationOnStartup() {
+  try {
+    const result = await uploadMigration();
+    return result;
+  } catch (error) {
+    // Log error but don't throw - this is non-blocking
+    console.error('[Migration Upload] Error:', error.message);
+    throw error;
+  }
+}
+
+// Run the upload if script is executed directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.includes('uploadMigration.js')) {
+  uploadMigration()
+    .then(() => {
+      console.log('');
+      console.log('✅ Script completed successfully');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('');
+      console.error('❌ Script failed:', error.message);
+      process.exit(1);
+    });
+}
 
