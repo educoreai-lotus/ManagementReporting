@@ -10,6 +10,9 @@ jobs:
   frontend_ci:
     name: Frontend CI
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
 
     steps:
       - name: Checkout code
@@ -23,20 +26,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./frontend
-        run: npm ci
+        run: npm install
 
       - name: Run linter (if available)
-        working-directory: ./frontend
         continue-on-error: true
         run: npm run lint || echo "Lint script not found, skipping..."
 
       - name: Build frontend
-        working-directory: ./frontend
         run: npm run build
 
       - name: Run frontend tests
-        working-directory: ./frontend
         # Run Vitest in CI mode (run command ensures tests run once and exit)
         # This includes: unit tests, component tests, and integration tests
         # Using npm run test to ensure devDependencies are available
@@ -53,6 +52,9 @@ jobs:
   backend_ci:
     name: Backend CI
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
 
     steps:
       - name: Checkout code
@@ -66,27 +68,22 @@ jobs:
           cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./backend
-        run: npm ci
+        run: npm install
 
       - name: Run linter (if available)
-        working-directory: ./backend
         continue-on-error: true
         run: npm run lint || echo "Lint script not found, skipping..."
 
       - name: Build backend (if available)
-        working-directory: ./backend
         continue-on-error: true
         run: npm run build || echo "Build script not found, skipping..."
 
       - name: Run backend tests
-        working-directory: ./backend
         # Run Jest unit and integration tests
         # Tests will fail the build if they fail
         run: npm test
 
       - name: Test health endpoint (if server starts)
-        working-directory: ./backend
         continue-on-error: true
         run: |
           timeout 10 npm start &
