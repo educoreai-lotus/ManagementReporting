@@ -526,6 +526,25 @@ async function uploadMigration() {
     console.log(`   Coordinator URL: ${cleanCoordinatorUrl}`);
     console.log('');
 
+    // Check if migration was already sent (via environment variable flag)
+    const MIGRATION_SENT = process.env.MIGRATION_SENT === 'true' || process.env.MIGRATION_ALREADY_SENT === 'true';
+    if (MIGRATION_SENT) {
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ MIGRATION ALREADY SENT (FLAG SET)');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('');
+      console.log('ℹ️  Migration upload flag is set - skipping upload.');
+      console.log('   Environment variable MIGRATION_SENT or MIGRATION_ALREADY_SENT is set to "true".');
+      console.log('');
+      console.log('💡 To send migration again, remove the flag from environment variables.');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ SKIPPING UPLOAD - Migration already sent flag detected');
+      console.log('═══════════════════════════════════════════════════════════');
+      return { success: true, status: 'skipped', message: 'Migration already sent - flag detected' };
+    }
+
     // Check if service is already active
     const currentStatus = await checkServiceStatus();
     if (currentStatus === 'active') {
@@ -545,6 +564,10 @@ async function uploadMigration() {
       console.log('✅ SKIPPING UPLOAD - Service already active');
       console.log('═══════════════════════════════════════════════════════════');
       return { success: true, status: 'active', message: 'Service already active - upload skipped' };
+    } else if (currentStatus === 'pending_migration') {
+      console.log(`   Current Status: ${currentStatus}`);
+      console.log('   ✅ Status is pending_migration - proceeding with upload...');
+      console.log('');
     } else if (currentStatus) {
       console.log(`   Current Status: ${currentStatus}`);
       console.log('   Proceeding with migration upload...');
