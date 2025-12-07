@@ -6,29 +6,35 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock axios before importing api
-const mockRequestUse = vi.fn();
-const mockResponseUse = vi.fn();
-
-vi.mock('axios', () => {
+vi.mock('axios', async () => {
+  const { vi } = await import('vitest');
+  const mockRequestUse = vi.fn();
+  const mockResponseUse = vi.fn();
+  
+  // Create a shared interceptors object that will be used by the instance
+  const sharedInterceptors = {
+    request: { use: mockRequestUse },
+    response: { use: mockResponseUse }
+  };
+  
   const mockAxios = {
     create: vi.fn(() => {
       const instance = {
         get: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
         post: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
-        interceptors: {
-          request: { use: mockRequestUse },
-          response: { use: mockResponseUse }
-        }
+        interceptors: sharedInterceptors
       };
       return instance;
     }),
     get: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
     post: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
-    interceptors: {
-      request: { use: mockRequestUse },
-      response: { use: mockResponseUse }
-    }
+    interceptors: sharedInterceptors
   };
+  
+  // Store spies globally so we can access them in tests
+  global.mockRequestUse = mockRequestUse;
+  global.mockResponseUse = mockResponseUse;
+  
   return {
     default: mockAxios,
     __esModule: true
@@ -50,7 +56,8 @@ import {
 
 describe('API Client', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Don't clear mocks for interceptors - they're called during module import
+    // vi.clearAllMocks();
     // localStorage is already cleared in setupTests.js
   });
 
@@ -236,10 +243,22 @@ describe('API Client', () => {
 
   describe('API interceptors', () => {
     it('should have request interceptor configured', () => {
+      // The interceptor should be configured on the api instance
+      expect(api.interceptors.request.use).toBeDefined();
+      // api.interceptors.request.use should be the mock function
+      expect(api.interceptors.request.use).toBe(global.mockRequestUse);
+      // The interceptor.use should have been called once during module import
+      // when api.js calls api.interceptors.request.use() at line 33
       expect(api.interceptors.request.use).toHaveBeenCalledTimes(1);
     });
 
     it('should have response interceptor configured', () => {
+      // The interceptor should be configured on the api instance
+      expect(api.interceptors.response.use).toBeDefined();
+      // api.interceptors.response.use should be the mock function
+      expect(api.interceptors.response.use).toBe(global.mockResponseUse);
+      // The interceptor.use should have been called once during module import
+      // when api.js calls api.interceptors.response.use() at line 84
       expect(api.interceptors.response.use).toHaveBeenCalledTimes(1);
     });
 
