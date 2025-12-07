@@ -9,6 +9,8 @@
  * - SERVICE_ID: Service ID from Stage 1 registration
  * - MR_NAME: Service name
  * - MR_PRIVATE_KEY: Private key for ECDSA signing
+ * 
+ * Last updated: 2025-01-13
  */
 
 import axios from 'axios';
