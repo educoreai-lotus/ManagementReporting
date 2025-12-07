@@ -15,9 +15,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     # do not fail the whole workflow if deploy fails
     continue-on-error: true
-    defaults:
-      run:
-        working-directory: frontend
 
     steps:
       - name: Checkout code
@@ -31,27 +28,27 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefix frontend
 
       - name: Build frontend
-        run: npm run build
+        run: npm run build --prefix frontend
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
       - name: Configure Vercel project
         run: |
-          mkdir -p .vercel
-          echo "{\"projectId\":\"${{ secrets.VERCEL_PROJECT_ID }}\",\"orgId\":\"${{ secrets.VERCEL_ORG_ID }}\"}" > .vercel/project.json
-          echo "Generated .vercel/project.json:"
-          cat .vercel/project.json
+          mkdir -p frontend/.vercel
+          echo "{ \"projectId\": \"${{ secrets.VERCEL_PROJECT_ID }}\", \"orgId\": \"${{ secrets.VERCEL_ORG_ID }}\" }" > frontend/.vercel/project.json
+          echo "Generated frontend/.vercel/project.json:"
+          cat frontend/.vercel/project.json
 
       - name: Deploy to Vercel
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel deploy --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
+          vercel deploy frontend --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
 
   deploy_backend:
     name: Deploy Backend to Railway
