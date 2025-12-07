@@ -46,14 +46,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
             echo "⚠️ No VERCEL_TOKEN provided — skipping deploy (Vercel will auto-deploy from GitHub)."
             exit 0
           fi
 
-          vercel --prod --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM_ID" --yes || \
+          vercel --prod --token "$VERCEL_TOKEN" --yes || \
             echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy."
 
   deploy_backend:
