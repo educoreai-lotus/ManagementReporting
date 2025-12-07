@@ -9,7 +9,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "seed": "node src/infrastructure/seedMockData.js"
+    "seed": "node src/infrastructure/seedMockData.js",
+    "upload-migration": "node scripts/uploadMigration.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
