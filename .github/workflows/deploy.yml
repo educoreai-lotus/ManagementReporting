@@ -39,14 +39,19 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
+      - name: Configure Vercel project
+        run: |
+          mkdir -p .vercel
+          echo "{\"projectId\":\"${{ secrets.VERCEL_PROJECT_ID }}\",\"orgId\":\"${{ secrets.VERCEL_ORG_ID }}\"}" > .vercel/project.json
+          echo "Generated .vercel/project.json:"
+          cat .vercel/project.json
+
       - name: Deploy to Vercel
         continue-on-error: true
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel deploy --prod \
-            --token "${{ secrets.VERCEL_TOKEN }}" \
-            --project "${{ secrets.VERCEL_PROJECT_ID }}" \
-            --org "${{ secrets.VERCEL_ORG_ID }}" \
-            --yes || echo "⚠️ Vercel deploy failed, falling back to Vercel auto-deploy"
+          vercel deploy ./dist --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
 
   deploy_backend:
     name: Deploy Backend to Railway
