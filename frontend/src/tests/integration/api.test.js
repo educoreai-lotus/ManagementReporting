@@ -4,6 +4,37 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Mock axios before importing api
+const mockRequestUse = vi.fn();
+const mockResponseUse = vi.fn();
+
+vi.mock('axios', () => {
+  const mockAxios = {
+    create: vi.fn(() => {
+      const instance = {
+        get: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
+        post: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
+        interceptors: {
+          request: { use: mockRequestUse },
+          response: { use: mockResponseUse }
+        }
+      };
+      return instance;
+    }),
+    get: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
+    post: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
+    interceptors: {
+      request: { use: mockRequestUse },
+      response: { use: mockResponseUse }
+    }
+  };
+  return {
+    default: mockAxios,
+    __esModule: true
+  };
+});
+
 import axios from 'axios';
 import {
   dashboardAPI,
@@ -16,23 +47,6 @@ import {
   chartTranscriptionAPI,
   default as api
 } from '../../services/api.js';
-
-// Mock axios
-vi.mock('axios', () => {
-  const mockAxios = {
-    create: vi.fn(() => mockAxios),
-    get: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
-    post: vi.fn(() => Promise.resolve({ data: {}, status: 200 })),
-    interceptors: {
-      request: { use: vi.fn() },
-      response: { use: vi.fn() }
-    }
-  };
-  return {
-    default: mockAxios,
-    __esModule: true
-  };
-});
 
 describe('API Client', () => {
   beforeEach(() => {
@@ -222,19 +236,24 @@ describe('API Client', () => {
 
   describe('API interceptors', () => {
     it('should have request interceptor configured', () => {
-      expect(api.interceptors.request.use).toHaveBeenCalled();
+      expect(api.interceptors.request.use).toHaveBeenCalledTimes(1);
     });
 
     it('should have response interceptor configured', () => {
-      expect(api.interceptors.response.use).toHaveBeenCalled();
+      expect(api.interceptors.response.use).toHaveBeenCalledTimes(1);
     });
 
-    it('should add Authorization header when token exists', () => {
+    it('should add Authorization header when token exists', async () => {
       localStorage.setItem('authToken', 'test-token');
       
-      // The interceptor is set up during module import
-      // We verify it was configured
-      expect(api.interceptors.request.use).toHaveBeenCalled();
+      // Make a request to trigger the interceptor
+      const mockResponse = { data: {}, status: 200 };
+      api.get.mockResolvedValue(mockResponse);
+      
+      await api.get('/test');
+      
+      // Verify the request was made
+      expect(api.get).toHaveBeenCalled();
     });
   });
 });

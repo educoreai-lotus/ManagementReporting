@@ -79,17 +79,14 @@ export const browserCache = {
   },
 
   // Clear cache
-  clear: (prefix = '') => {
-    try {
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key.startsWith(`${CACHE_PREFIX}${prefix}`)) {
-          localStorage.removeItem(key);
-        }
-      });
-    } catch (error) {
-      console.error('Error clearing cache:', error);
+  clear: (prefix) => {
+    if (!prefix) {
+      localStorage.clear();
+      return;
     }
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith(prefix)) localStorage.removeItem(key);
+    });
   },
 };
 

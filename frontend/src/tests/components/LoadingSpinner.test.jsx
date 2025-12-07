@@ -11,7 +11,8 @@ describe('LoadingSpinner', () => {
   it('should render spinner element', () => {
     render(<LoadingSpinner />);
     
-    const spinner = screen.getByRole('generic').querySelector('.animate-spin');
+    const spinners = screen.getAllByRole('generic');
+    const spinner = spinners.find(el => el.querySelector('.animate-spin'));
     expect(spinner).toBeInTheDocument();
   });
 
