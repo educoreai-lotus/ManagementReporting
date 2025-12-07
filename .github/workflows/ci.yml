@@ -47,10 +47,10 @@ jobs:
 
       - name: Run frontend tests
         working-directory: ./frontend
-        # Run Vitest in CI mode (run command ensures tests run once and exit)
+        # Run Vitest in CI mode (automatically detects CI environment)
         # This includes: unit tests, component tests, and integration tests
         # Using npm run test to ensure devDependencies are available
-        run: npm run test -- --run
+        run: npm run test
 
       - name: Upload build artifacts
         if: success()
