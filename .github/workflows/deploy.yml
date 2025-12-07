@@ -47,8 +47,9 @@ jobs:
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        working-directory: frontend
         run: |
-          vercel deploy frontend --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
+          vercel deploy --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
 
   deploy_backend:
     name: Deploy Backend to Railway
