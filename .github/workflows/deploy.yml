@@ -89,15 +89,10 @@ jobs:
             exit 0
           fi
 
-          if ! printf "%s\n" "$RAILWAY_TOKEN" | railway login --browserless; then
-            echo "⚠️ Railway login failed, falling back to Railway auto-deploy."
-            exit 0
-          fi
-
           if [ -n "$RAILWAY_SERVICE_ID" ]; then
-            railway up --service "$RAILWAY_SERVICE_ID" || \
+            railway up --token "$RAILWAY_TOKEN" --service "$RAILWAY_SERVICE_ID" || \
               echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
           else
-            railway up || \
+            railway up --token "$RAILWAY_TOKEN" || \
               echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
           fi
