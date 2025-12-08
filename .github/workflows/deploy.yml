@@ -79,6 +79,7 @@ jobs:
         # uses RAILWAY_TOKEN and optionally RAILWAY_SERVICE_ID
         # Railway will auto-detect the service if RAILWAY_SERVICE_ID is not provided
         continue-on-error: true
+        working-directory: backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
@@ -87,10 +88,12 @@ jobs:
             echo "⚠️ No RAILWAY_TOKEN provided — skipping deploy (Railway will auto-deploy from GitHub)."
             exit 0
           fi
-          
-          echo "$RAILWAY_TOKEN" | railway login --browserless || \
+
+          if ! railway login --browserless --token "$RAILWAY_TOKEN"; then
             echo "⚠️ Railway login failed, falling back to Railway auto-deploy."
-          
+            exit 0
+          fi
+
           if [ -n "$RAILWAY_SERVICE_ID" ]; then
             railway up --service "$RAILWAY_SERVICE_ID" || \
               echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
