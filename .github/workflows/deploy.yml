@@ -89,7 +89,7 @@ jobs:
             exit 0
           fi
 
-          if ! railway login --browserless --token "$RAILWAY_TOKEN"; then
+          if ! printf "%s\n" "$RAILWAY_TOKEN" | railway login --browserless; then
             echo "⚠️ Railway login failed, falling back to Railway auto-deploy."
             exit 0
           fi
