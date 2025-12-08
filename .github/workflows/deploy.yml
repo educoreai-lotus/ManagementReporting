@@ -90,9 +90,9 @@ jobs:
           fi
 
           if [ -n "$RAILWAY_SERVICE_ID" ]; then
-            railway up --token "$RAILWAY_TOKEN" --service "$RAILWAY_SERVICE_ID" || \
+            railway up --service "$RAILWAY_SERVICE_ID" --ci || \
               echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
           else
-            railway up --token "$RAILWAY_TOKEN" || \
+            railway up --ci || \
               echo "⚠️ Railway deploy failed, falling back to Railway auto-deploy."
           fi
