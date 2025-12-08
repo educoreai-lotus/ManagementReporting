@@ -38,16 +38,15 @@ jobs:
 
       - name: Configure Vercel project
         run: |
-          mkdir -p frontend/.vercel
-          echo "{ \"projectId\": \"${{ secrets.VERCEL_PROJECT_ID }}\", \"orgId\": \"${{ secrets.VERCEL_ORG_ID }}\" }" > frontend/.vercel/project.json
-          echo "Generated frontend/.vercel/project.json:"
-          cat frontend/.vercel/project.json
+          mkdir -p .vercel
+          echo "{ \"projectId\": \"${{ secrets.VERCEL_PROJECT_ID }}\", \"orgId\": \"${{ secrets.VERCEL_ORG_ID }}\" }" > .vercel/project.json
+          echo "Generated .vercel/project.json:"
+          cat .vercel/project.json
 
       - name: Deploy to Vercel
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
         run: |
           vercel deploy --prod --yes --token "$VERCEL_TOKEN" || echo "⚠️ Vercel deploy failed — falling back to auto-deploy"
 
