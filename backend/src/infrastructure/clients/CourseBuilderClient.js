@@ -1,10 +1,4 @@
-import axios from "axios";
-
-const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
-
-if (!COORDINATOR_API_URL) {
-  console.error("Missing COORDINATOR_API_URL env variable");
-}
+import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 
 /**
  * Calls the Course Builder microservice.
@@ -55,21 +49,13 @@ export async function fetchCourseBuilderDataFromService() {
   };
 
   try {
-    const requestJsonString = JSON.stringify(requestObject);
+    const response = await postToCoordinator(requestObject);
 
-    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      timeout: 30000
-    });
-
-    if (!response || !response.data) {
+    if (!response) {
       throw new Error("Empty response from Course Builder service");
     }
 
-    const parsed =
-      typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
     if (!parsed.courses || !Array.isArray(parsed.courses)) {
       throw new Error("Expected Course Builder response to contain { courses: [...] }");

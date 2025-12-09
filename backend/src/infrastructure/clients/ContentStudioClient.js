@@ -1,10 +1,4 @@
-import axios from "axios";
-
-const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
-
-if (!COORDINATOR_API_URL) {
-  console.error("Missing COORDINATOR_API_URL env variable");
-}
+import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 
 /**
  * Fetches content metrics from the Content Studio microservice.
@@ -37,20 +31,12 @@ export async function fetchContentMetricsFromContentStudio() {
   };
 
   try {
-    // 2. Stringify entire request object to JSON string
-    const requestJsonString = JSON.stringify(requestObject);
-
-    // 3. Send as raw JSON string (application/json)
-    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      timeout: 30000
-    });
+    // 2. Send envelope via Coordinator
+    const response = await postToCoordinator(requestObject);
 
     // 4. From here down: keep the same nested parsing logic as before
 
-    const { payload } = response.data || {};
+    const { payload } = response || {};
 
     if (!payload || typeof payload !== "string") {
       throw new Error("Invalid payload returned from Content Studio");

@@ -1,10 +1,4 @@
-import axios from "axios";
-
-const COORDINATOR_API_URL = process.env.COORDINATOR_API_URL;
-
-if (!COORDINATOR_API_URL) {
-  console.error("Missing COORDINATOR_API_URL env variable");
-}
+import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 
 /**
  * Calls the Learning Analytics microservice.
@@ -102,22 +96,14 @@ export async function fetchLearningAnalyticsFromService() {
   };
 
   try {
-    const requestJsonString = JSON.stringify(requestObject);
+    const response = await postToCoordinator(requestObject);
 
-    const response = await axios.post(COORDINATOR_API_URL, requestJsonString, {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      timeout: 30000
-    });
-
-    if (!response || typeof response.data === "undefined" || response.data === null) {
+    if (typeof response === "undefined" || response === null) {
       throw new Error("Empty response from Learning Analytics service");
     }
 
     // The service returns ONLY the filled `response` object as JSON string or object
-    const parsed =
-      typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
     if (!parsed || typeof parsed !== "object") {
       throw new Error("Invalid Learning Analytics response structure");
