@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies (only frontend files are copied)
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy the rest of the frontend source and build
 COPY . .

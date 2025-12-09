@@ -221,3 +221,4 @@ npm run test:ui
 - Tests are isolated and don't depend on external services
 - Mocking is done at the test file level (no global mocks)
 
+
