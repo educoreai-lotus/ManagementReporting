@@ -432,9 +432,7 @@ async function uploadMigration() {
 
     // Check if migration was already sent (via environment variable flag)
     const MIGRATION_SENT = process.env.MIGRATION_SENT === 'true' || process.env.MIGRATION_ALREADY_SENT === 'true';
-    const MIGRATION_FORCE = process.env.MIGRATION_FORCE === 'true' || process.env.FORCE_MIGRATION_UPLOAD === 'true';
-
-    if (MIGRATION_SENT && !MIGRATION_FORCE) {
+    if (MIGRATION_SENT) {
       console.log('');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('✅ MIGRATION ALREADY SENT (FLAG SET)');
@@ -449,13 +447,6 @@ async function uploadMigration() {
       console.log('✅ SKIPPING UPLOAD - Migration already sent flag detected');
       console.log('═══════════════════════════════════════════════════════════');
       return { success: true, status: 'skipped', message: 'Migration already sent - flag detected' };
-    } else if (MIGRATION_SENT && MIGRATION_FORCE) {
-      console.log('');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('⚠️  MIGRATION SENT FLAG PRESENT, BUT FORCE UPLOAD ENABLED');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('ℹ️  Proceeding with upload because MIGRATION_FORCE/FORCE_MIGRATION_UPLOAD is true.');
-      console.log('');
     }
 
     // Check if service is already active
