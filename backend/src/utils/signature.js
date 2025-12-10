@@ -50,17 +50,14 @@ export function generateSignature(serviceName, privateKeyPem, payload) {
   const message = buildMessage(serviceName, payload);
 
   try {
-    const privateKey = crypto.createPrivateKey({
-      key: privateKeyPem,
-      format: 'pem',
-    });
+    // Use DER encoding (Node default via createSign)
+    const signer = crypto.createSign('SHA256');
+    signer.update(message);
+    signer.end();
 
-    const signature = crypto.sign('sha256', Buffer.from(message, 'utf8'), {
-      key: privateKey,
-      dsaEncoding: 'ieee-p1363', // ECDSA P-256 encoding
-    });
-
-    const signatureB64 = signature.toString('base64');
+    // Base64 DER-encoded signature (no whitespace/newlines)
+    const rawSignature = signer.sign(privateKeyPem, 'base64');
+    const signatureB64 = rawSignature.replace(/\s+/g, '');
 
     if (process.env.NODE_ENV !== 'production') {
       console.log('[signature] signature (base64):', signatureB64);
