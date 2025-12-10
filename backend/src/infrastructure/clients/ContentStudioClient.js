@@ -22,7 +22,7 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 export async function fetchContentMetricsFromContentStudio() {
   // 1. New unified request format
   const requestObject = {
-    requester_name: "ManagementReporting",
+    requester_service: "ManagementReporting",
     payload: {},
     response: {
       courses: [],

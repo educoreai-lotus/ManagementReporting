@@ -90,7 +90,7 @@ export async function fetchLearningAnalyticsFromService() {
   };
 
   const requestObject = {
-    requester_name: "ManagementReporting",
+    requester_service: "ManagementReporting",
     payload: {},
     response: responseTemplate
   };

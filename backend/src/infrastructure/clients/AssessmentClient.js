@@ -38,7 +38,7 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 export async function fetchAssessmentDataFromService() {
   // 1. Request object in the new format (response is an array with one "shape" record)
   const requestObject = {
-    requester_name: "ManagementReporting",
+    requester_service: "ManagementReporting",
     payload: {},
     response: [
       {

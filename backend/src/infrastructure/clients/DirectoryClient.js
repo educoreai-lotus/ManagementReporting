@@ -35,7 +35,7 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
  */
 export async function fetchDirectoryDataFromService() {
   const requestObject = {
-    requester_name: "ManagementReporting",
+    requester_service: "ManagementReporting",
     payload: {},
     response: {
       companies: [
