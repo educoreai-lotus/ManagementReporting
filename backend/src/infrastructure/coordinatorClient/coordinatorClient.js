@@ -97,6 +97,7 @@ export async function postToCoordinator(envelope, options = {}) {
     console.log('[CoordinatorClient] Signed message+signature ready');
 
     // Send POST request with signature headers
+    // Use responseType: 'text' to get raw body string for signature verification
     const response = await axios.post(url, envelopeForSigning, {
       headers: {
         'Content-Type': 'application/json',
@@ -104,6 +105,8 @@ export async function postToCoordinator(envelope, options = {}) {
         'X-Signature': signature,
       },
       timeout,
+      responseType: 'text', // Get raw string for signature verification
+      transformResponse: [(data) => data], // Prevent automatic JSON parsing
     });
 
     // Payload identity check (after send) to detect mutation
@@ -115,14 +118,26 @@ export async function postToCoordinator(envelope, options = {}) {
       console.warn('[CoordinatorClient] ⚠️ Payload mutated after signing!');
     }
 
-    // Optional: Verify response signature if Coordinator provides one
+    // Extract raw body string (response.data is the raw string when responseType: 'text')
+    const rawBodyString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+    
+    // Parse JSON from raw body
+    let parsedData;
+    try {
+      parsedData = JSON.parse(rawBodyString);
+    } catch (parseError) {
+      // If parsing fails, return raw string as data (for backward compatibility)
+      parsedData = rawBodyString;
+    }
+
+    // Optional: Verify response signature if Coordinator provides one (non-blocking)
     if (coordinatorPublicKey && response.headers['x-service-signature']) {
       const responseSignature = response.headers['x-service-signature'];
       try {
         const isValid = verifySignature(
           'coordinator',
           coordinatorPublicKey,
-          response.data,
+          parsedData,
           responseSignature
         );
         if (!isValid) {
@@ -138,7 +153,13 @@ export async function postToCoordinator(envelope, options = {}) {
     }
 
     console.log(`[CoordinatorClient] ✅ Request successful`);
-    return response.data;
+    
+    // Return object with raw body, headers, and parsed data for client signature verification
+    return {
+      rawBodyString,
+      headers: response.headers,
+      data: parsedData
+    };
   } catch (error) {
     console.error('[CoordinatorClient] ❌ Request failed', {
       endpoint,
