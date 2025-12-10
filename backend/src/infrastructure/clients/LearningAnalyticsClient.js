@@ -91,7 +91,9 @@ export async function fetchLearningAnalyticsFromService() {
 
   const requestObject = {
     requester_service: "ManagementReporting",
-    payload: {},
+    payload: {
+      action: "Collecting system-wide analytics and computed learning metrics"
+    },
     response: responseTemplate
   };
 

@@ -39,7 +39,9 @@ export async function fetchAssessmentDataFromService() {
   // 1. Request object in the new format (response is an array with one "shape" record)
   const requestObject = {
     requester_service: "ManagementReporting",
-    payload: {},
+    payload: {
+      action: "Collecting assessment and exam-related data"
+    },
     response: [
       {
         user_id: null,

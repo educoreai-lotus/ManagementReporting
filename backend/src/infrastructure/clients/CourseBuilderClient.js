@@ -31,7 +31,9 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 export async function fetchCourseBuilderDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
-    payload: {},
+    payload: {
+      action: "Collecting course-related information"
+    },
     response: {
       courses: [
         {

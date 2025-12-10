@@ -23,7 +23,9 @@ export async function fetchContentMetricsFromContentStudio() {
   // 1. New unified request format
   const requestObject = {
     requester_service: "ManagementReporting",
-    payload: {},
+    payload: {
+      action: "Collecting content-related information"
+    },
     response: {
       courses: [],
       topics_stand_alone: []
