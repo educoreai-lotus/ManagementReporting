@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { generateSignature, verifySignature } from '../../utils/signature.js';
 
 const SERVICE_NAME = process.env.MR_NAME || 'managementreporting-service';
@@ -15,39 +16,88 @@ const SERVICE_NAME = process.env.MR_NAME || 'managementreporting-service';
  */
 export async function postToCoordinator(envelope, options = {}) {
   const coordinatorUrl = process.env.COORDINATOR_API_URL;
-  const privateKey = process.env.MR_PRIVATE_KEY;
+  let privateKey = process.env.MR_PRIVATE_KEY;
   const coordinatorPublicKey = process.env.COORDINATOR_PUBLIC_KEY || null; // Optional, for response verification
 
-  // Validate required environment variables
   if (!coordinatorUrl) {
     throw new Error('COORDINATOR_API_URL environment variable is required');
   }
 
+  // Load private key (env first, then fallback file)
+  let keySource = 'env';
   if (!privateKey) {
-    throw new Error('MR_PRIVATE_KEY environment variable is required for signing requests');
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const fallbackPath = path.join(process.cwd(), 'managementreporting-private-key.pem');
+      if (fs.existsSync(fallbackPath)) {
+        privateKey = fs.readFileSync(fallbackPath, 'utf8').trim();
+        keySource = `file:${fallbackPath}`;
+      } else {
+        throw new Error('MR_PRIVATE_KEY missing and fallback PEM not found');
+      }
+    } catch (e) {
+      throw new Error('MR_PRIVATE_KEY environment variable is required for signing requests');
+    }
   }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[CoordinatorClient] 🔑 Using private key from ${keySource}`);
+  }
+
+  // Normalize envelope: enforce requester_service
+  const normalizedEnvelope = { ...envelope };
+  if (normalizedEnvelope.requester_name) delete normalizedEnvelope.requester_name;
+  normalizedEnvelope.requester_service = normalizedEnvelope.requester_service || 'ManagementReporting';
+
+  // Deep clone to prevent mutation between signing and send
+  const envelopeForSigning =
+    typeof structuredClone === 'function'
+      ? structuredClone(normalizedEnvelope)
+      : JSON.parse(JSON.stringify(normalizedEnvelope));
 
   // Clean URL (remove trailing slash)
   const cleanCoordinatorUrl = coordinatorUrl.replace(/\/$/, '');
-  
+
   // Default endpoint is /api/fill-content-metrics/ (Coordinator proxy endpoint)
   let endpoint = options.endpoint || '/api/fill-content-metrics/';
-  
+
   // Normalize endpoint to always end with exactly one slash
   endpoint = endpoint.replace(/\/+$/, '') + '/';
-  
+
   const url = `${cleanCoordinatorUrl}${endpoint}`;
   const timeout = options.timeout || 30000;
 
   try {
-    // Generate ECDSA signature for the entire envelope
-    const signature = generateSignature(SERVICE_NAME, privateKey, envelope);
+    // Log exact payload before signing
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[CoordinatorClient] Envelope (pre-sign):', JSON.stringify(envelopeForSigning));
+    }
+
+    // Generate signature on the same object we will send
+    const signature = generateSignature(SERVICE_NAME, privateKey, envelopeForSigning);
+
+    // Header sanity checks
+    if (!SERVICE_NAME) {
+      console.warn('[CoordinatorClient] ⚠️ Missing service name header value');
+    }
+    if (!signature || /\s/.test(signature)) {
+      console.warn('[CoordinatorClient] ⚠️ Signature missing or contains whitespace/newlines');
+    }
+
+    // Payload identity check (before send)
+    const preSendHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(envelopeForSigning))
+      .digest('hex');
 
     console.log(`[CoordinatorClient] 📤 Sending request to Coordinator: ${url}`);
     console.log(`[CoordinatorClient] Service: ${SERVICE_NAME}`);
+    console.log('[CoordinatorClient] Signed payload hash (sha256 hex):', preSendHash);
+    console.log('[CoordinatorClient] Signed message+signature ready');
 
     // Send POST request with signature headers
-    const response = await axios.post(url, envelope, {
+    const response = await axios.post(url, envelopeForSigning, {
       headers: {
         'Content-Type': 'application/json',
         'X-Service-Name': SERVICE_NAME,
@@ -55,6 +105,15 @@ export async function postToCoordinator(envelope, options = {}) {
       },
       timeout,
     });
+
+    // Payload identity check (after send) to detect mutation
+    const postSendHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(envelopeForSigning))
+      .digest('hex');
+    if (preSendHash !== postSendHash) {
+      console.warn('[CoordinatorClient] ⚠️ Payload mutated after signing!');
+    }
 
     // Optional: Verify response signature if Coordinator provides one
     if (coordinatorPublicKey && response.headers['x-service-signature']) {
@@ -88,7 +147,6 @@ export async function postToCoordinator(envelope, options = {}) {
       responseData: error.response?.data,
     });
 
-    // Re-throw the error so callers can handle it
     throw error;
   }
 }
