@@ -17,6 +17,7 @@ import { initializeJobs } from './infrastructure/jobs/index.js';
 import runMigration from '../scripts/runMigration.js';
 import seedMockData, { isDatabaseEmpty } from './infrastructure/seedMockData.js';
 import { registerService } from './registration/register.js';
+import { uploadMigrationOnStartup } from '../scripts/uploadMigration.js';
 
 dotenv.config();
 
@@ -153,6 +154,13 @@ app.listen(PORT, () => {
       await registerService();
     } catch (regErr) {
       console.error('[Startup] Service registration error (non-fatal):', regErr.message);
+    }
+    
+    // Upload migration file to Coordinator (non-blocking)
+    try {
+      await uploadMigrationOnStartup();
+    } catch (migrationUploadErr) {
+      console.error('[Startup] Migration upload error (non-fatal):', migrationUploadErr.message);
     }
     
     // Initialize scheduled jobs (async - loads initial mock data in development) - non-blocking
