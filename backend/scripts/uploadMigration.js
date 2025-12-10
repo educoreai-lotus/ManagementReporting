@@ -76,104 +76,6 @@ const migrationFile = {
         description: 'Main endpoint for receiving requests from coordinator (RAG service)',
         requestSchema: {},
         responseSchema: {}
-      },
-      {
-        path: '/api/v1/dashboard',
-        method: 'GET',
-        description: 'Get dashboard data with all charts and metrics',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/dashboard/all-charts',
-        method: 'GET',
-        description: 'Get all charts for transcription',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/dashboard/refresh',
-        method: 'POST',
-        description: 'Refresh dashboard data from microservices',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/dashboard/chart/:chartId',
-        method: 'GET',
-        description: 'Get specific chart by ID',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/reports/types',
-        method: 'GET',
-        description: 'Get available report types',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/reports/generate',
-        method: 'POST',
-        description: 'Generate a report (JSON or PDF format)',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/data/refresh',
-        method: 'POST',
-        description: 'Trigger manual data collection from microservices',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/data/status',
-        method: 'GET',
-        description: 'Get data collection status',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/openai/report-conclusions',
-        method: 'POST',
-        description: 'Generate AI-powered report conclusions from chart images',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/ai/chart-transcription/startup',
-        method: 'POST',
-        description: 'Generate chart transcriptions on startup',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/ai/chart-transcription/refresh',
-        method: 'POST',
-        description: 'Refresh chart transcriptions',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/ai/chart-transcription/:chartId',
-        method: 'GET',
-        description: 'Get chart transcription by chart ID',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/v1/health/db',
-        method: 'GET',
-        description: 'Database health check endpoint',
-        requestSchema: {},
-        responseSchema: {}
-      },
-      {
-        path: '/api/ai-custom/query-data',
-        method: 'POST',
-        description: 'AI-powered custom SQL query generation and execution',
-        requestSchema: {},
-        responseSchema: {}
       }
     ]
   },
@@ -530,7 +432,9 @@ async function uploadMigration() {
 
     // Check if migration was already sent (via environment variable flag)
     const MIGRATION_SENT = process.env.MIGRATION_SENT === 'true' || process.env.MIGRATION_ALREADY_SENT === 'true';
-    if (MIGRATION_SENT) {
+    const MIGRATION_FORCE = process.env.MIGRATION_FORCE === 'true' || process.env.FORCE_MIGRATION_UPLOAD === 'true';
+
+    if (MIGRATION_SENT && !MIGRATION_FORCE) {
       console.log('');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('✅ MIGRATION ALREADY SENT (FLAG SET)');
@@ -545,6 +449,13 @@ async function uploadMigration() {
       console.log('✅ SKIPPING UPLOAD - Migration already sent flag detected');
       console.log('═══════════════════════════════════════════════════════════');
       return { success: true, status: 'skipped', message: 'Migration already sent - flag detected' };
+    } else if (MIGRATION_SENT && MIGRATION_FORCE) {
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('⚠️  MIGRATION SENT FLAG PRESENT, BUT FORCE UPLOAD ENABLED');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('ℹ️  Proceeding with upload because MIGRATION_FORCE/FORCE_MIGRATION_UPLOAD is true.');
+      console.log('');
     }
 
     // Check if service is already active
