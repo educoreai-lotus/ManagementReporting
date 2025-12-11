@@ -87,7 +87,7 @@ export class GetDashboardUseCase {
       const charts = [];
       
       // Priority services for main dashboard (most important for managers)
-      const priorityServices = ['directory', 'courseBuilder', 'assessment', 'learningAnalytics'];
+      const priorityServices = ['directory', 'courseBuilder', 'assessment'];
       
       // Process each service and create multiple charts
       for (const { service, data } of latestEntries) {
@@ -134,9 +134,9 @@ export class GetDashboardUseCase {
         charts.push(...detailedCharts);
       }
       
-      // Also create Content Studio main chart for BOX
+      // Also create Content Studio and Learning Analytics main charts for BOX
       for (const { service, data } of latestEntries) {
-        if (service === 'contentStudio') {
+        if (service === 'contentStudio' || service === 'learningAnalytics') {
           const config = SERVICE_CHART_CONFIG[service];
           const mainChartData = this.formatChartData(data, service, 'main');
           if (mainChartData.length > 0) {
@@ -152,7 +152,7 @@ export class GetDashboardUseCase {
                 source: data.metadata?.source || service,
                 schemaVersion: data.metadata?.schema_version || '1.0',
                 colorScheme: config.colorScheme,
-                isPriority: false // Content Studio goes to BOX
+                isPriority: false // Content Studio and Learning Analytics go to BOX
               }
             });
             charts.push(mainChart.toJSON());
