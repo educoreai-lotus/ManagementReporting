@@ -14,12 +14,19 @@ export function buildMessage(serviceName, payload) {
 
   // Payload may be undefined/null; only hash when provided
   if (payload === undefined || payload === null) {
+    console.log('[CoordinatorVerification-DEBUG] buildMessage: payload is undefined/null, returning base:', base);
     return base;
   }
 
   const payloadString = JSON.stringify(payload);
+  console.log('[CoordinatorVerification-DEBUG] buildMessage: payloadString length:', payloadString.length);
+  console.log('[CoordinatorVerification-DEBUG] buildMessage: payloadString preview (first 200 chars):', payloadString.substring(0, 200) + (payloadString.length > 200 ? '...' : ''));
+  
   const payloadHash = crypto.createHash('sha256').update(payloadString).digest('hex');
+  console.log('[CoordinatorVerification-DEBUG] buildMessage: payloadHash (sha256 hex):', payloadHash);
+  
   const message = `${base}-${payloadHash}`;
+  console.log('[CoordinatorVerification-DEBUG] buildMessage: final message:', message);
 
   // Debug (dev-mode): show message parts
   if (process.env.NODE_ENV !== 'production') {
@@ -73,29 +80,58 @@ export function generateSignature(serviceName, privateKeyPem, payload) {
  * Verify ECDSA P-256 signature (optional)
  */
 export function verifySignature(serviceName, publicKeyPem, payload, signature) {
+  // [CoordinatorVerification-DEBUG] Entry point
+  console.log('[CoordinatorVerification-DEBUG] verifySignature called');
+  console.log('[CoordinatorVerification-DEBUG]   - serviceName:', serviceName);
+  console.log('[CoordinatorVerification-DEBUG]   - publicKeyPem exists:', !!publicKeyPem);
+  console.log('[CoordinatorVerification-DEBUG]   - publicKeyPem length:', publicKeyPem?.length || 0);
+  console.log('[CoordinatorVerification-DEBUG]   - payload type:', typeof payload);
+  console.log('[CoordinatorVerification-DEBUG]   - payload is null:', payload === null);
+  console.log('[CoordinatorVerification-DEBUG]   - payload is undefined:', payload === undefined);
+  console.log('[CoordinatorVerification-DEBUG]   - signature exists:', !!signature);
+  console.log('[CoordinatorVerification-DEBUG]   - signature length:', signature?.length || 0);
+
   if (!publicKeyPem || !signature) {
+    console.log('[CoordinatorVerification-DEBUG] verifySignature: Missing publicKey or signature, returning false');
     return false;
   }
 
   try {
     const message = buildMessage(serviceName, payload);
+    console.log('[CoordinatorVerification-DEBUG] buildMessage returned:', message);
+    console.log('[CoordinatorVerification-DEBUG] Message length:', message.length);
+    
     const publicKey = crypto.createPublicKey({
       key: publicKeyPem,
       format: 'pem',
     });
+    console.log('[CoordinatorVerification-DEBUG] Public key object created successfully');
 
     const signatureBuffer = Buffer.from(signature, 'base64');
-    return crypto.verify(
+    console.log('[CoordinatorVerification-DEBUG] Signature buffer length:', signatureBuffer.length);
+    
+    const messageBuffer = Buffer.from(message, 'utf8');
+    console.log('[CoordinatorVerification-DEBUG] Message buffer length:', messageBuffer.length);
+    console.log('[CoordinatorVerification-DEBUG] Calling crypto.verify with:');
+    console.log('[CoordinatorVerification-DEBUG]   - algorithm: sha256');
+    console.log('[CoordinatorVerification-DEBUG]   - message:', message);
+    console.log('[CoordinatorVerification-DEBUG]   - dsaEncoding: ieee-p1363');
+    
+    const isValid = crypto.verify(
       'sha256',
-      Buffer.from(message, 'utf8'),
+      messageBuffer,
       {
         key: publicKey,
         dsaEncoding: 'ieee-p1363',
       },
       signatureBuffer
     );
+    
+    console.log('[CoordinatorVerification-DEBUG] crypto.verify returned:', isValid);
+    return isValid;
   } catch (error) {
-    console.error('[signature] Verification error:', error.message);
+    console.error('[CoordinatorVerification-DEBUG] Verification error:', error.message);
+    console.error('[CoordinatorVerification-DEBUG] Verification error stack:', error.stack);
     return false;
   }
 }

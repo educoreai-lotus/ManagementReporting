@@ -109,6 +109,34 @@ export async function postToCoordinator(envelope, options = {}) {
       transformResponse: [(data) => data], // Prevent automatic JSON parsing
     });
 
+    // [CoordinatorClient-DEBUG] Response details
+    console.log('[CoordinatorClient-DEBUG] ========== RESPONSE RECEIVED ==========');
+    console.log('[CoordinatorClient-DEBUG] Full URL called:', url);
+    console.log('[CoordinatorClient-DEBUG] Response status:', response.status);
+    console.log('[CoordinatorClient-DEBUG] Response statusText:', response.statusText);
+    console.log('[CoordinatorClient-DEBUG] Response headers exist:', !!response.headers);
+    console.log('[CoordinatorClient-DEBUG] All response header keys:', Object.keys(response.headers || {}).join(', '));
+    
+    // Check signature header
+    const responseSig = response.headers['x-service-signature'] || response.headers['X-Service-Signature'];
+    console.log('[CoordinatorClient-DEBUG] x-service-signature header exists:', !!responseSig);
+    if (responseSig) {
+      console.log('[CoordinatorClient-DEBUG] x-service-signature length:', responseSig.length);
+      console.log('[CoordinatorClient-DEBUG] x-service-signature preview (first 32 chars):', responseSig.substring(0, 32) + '...');
+    } else {
+      console.log('[CoordinatorClient-DEBUG] x-service-signature is missing or empty');
+    }
+    
+    // Check signer header
+    const responseSigner = response.headers['x-service-name'] || response.headers['X-Service-Name'];
+    console.log('[CoordinatorClient-DEBUG] x-service-name header exists:', !!responseSigner);
+    if (responseSigner) {
+      console.log('[CoordinatorClient-DEBUG] x-service-name value:', responseSigner);
+      console.log('[CoordinatorClient-DEBUG] x-service-name === "coordinator":', responseSigner === 'coordinator');
+    } else {
+      console.log('[CoordinatorClient-DEBUG] x-service-name is missing or empty');
+    }
+
     // Payload identity check (after send) to detect mutation
     const postSendHash = crypto
       .createHash('sha256')
@@ -121,14 +149,26 @@ export async function postToCoordinator(envelope, options = {}) {
     // Extract raw body string (response.data is the raw string when responseType: 'text')
     const rawBodyString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
     
+    console.log('[CoordinatorClient-DEBUG] Raw body string type:', typeof rawBodyString);
+    console.log('[CoordinatorClient-DEBUG] Raw body string length:', rawBodyString?.length || 0);
+    console.log('[CoordinatorClient-DEBUG] Raw body preview (first 200 chars):', rawBodyString?.substring(0, 200) + (rawBodyString?.length > 200 ? '...' : ''));
+    
     // Parse JSON from raw body
     let parsedData;
     try {
       parsedData = JSON.parse(rawBodyString);
+      console.log('[CoordinatorClient-DEBUG] JSON parsing successful');
+      console.log('[CoordinatorClient-DEBUG] Parsed data type:', typeof parsedData);
+      const parsedString = JSON.stringify(parsedData);
+      console.log('[CoordinatorClient-DEBUG] Parsed data string length:', parsedString.length);
+      console.log('[CoordinatorClient-DEBUG] Parsed data preview (first 200 chars):', parsedString.substring(0, 200) + (parsedString.length > 200 ? '...' : ''));
     } catch (parseError) {
       // If parsing fails, return raw string as data (for backward compatibility)
       parsedData = rawBodyString;
+      console.log('[CoordinatorClient-DEBUG] JSON parsing failed, using raw string:', parseError.message);
     }
+    
+    console.log('[CoordinatorClient-DEBUG] ========== RESPONSE PROCESSING END ==========');
 
     // Optional: Verify response signature if Coordinator provides one (non-blocking)
     if (coordinatorPublicKey && response.headers['x-service-signature']) {
