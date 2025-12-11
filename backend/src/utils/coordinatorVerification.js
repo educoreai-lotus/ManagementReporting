@@ -29,20 +29,31 @@ export async function verifyCoordinatorResponse(rawResponse, data) {
       return true;
     }
 
-    // Get raw body string for verification (rawResponse.data is the raw string when responseType: 'text')
-    const rawBodyString = rawResponse?.data || (typeof data === 'string' ? data : JSON.stringify(data));
+    // Coordinator signs on the parsed data (object), not the raw body string
+    // Use the data parameter which is already parsed by coordinatorClient
+    const payloadForVerification = data;
 
-    if (!rawBodyString) {
-      console.warn('[CoordinatorVerification] No raw body string available for verification');
+    if (!payloadForVerification) {
+      console.warn('[CoordinatorVerification] No payload data available for verification');
       return false;
     }
 
-    // Verify signature using existing utility
-    const { verifyCoordinatorSignature } = await import('../infrastructure/utils/verifyCoordinatorSignature.js');
-    const isValid = verifyCoordinatorSignature(coordinatorPublicKey, signature, rawBodyString);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[CoordinatorVerification] Payload type:', typeof payloadForVerification);
+      console.log('[CoordinatorVerification] Payload preview:', JSON.stringify(payloadForVerification).substring(0, 200));
+    }
+
+    // Verify signature using existing utility (same as coordinatorClient uses)
+    // Use verifySignature from signature.js which uses buildMessage format
+    const { verifySignature } = await import('../utils/signature.js');
+    const isValid = verifySignature('coordinator', coordinatorPublicKey, payloadForVerification, signature);
     
     if (!isValid) {
       console.warn('[CoordinatorVerification] Signature verification failed');
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[CoordinatorVerification] Signature:', signature?.substring(0, 50));
+        console.warn('[CoordinatorVerification] Signer:', signer);
+      }
     } else {
       console.log('[CoordinatorVerification] ✅ Signature verified successfully');
     }
