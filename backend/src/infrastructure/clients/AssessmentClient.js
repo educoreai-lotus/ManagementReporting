@@ -41,7 +41,7 @@ export async function fetchAssessmentDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "collect Information about Assessment creation and retrieving information about completed Assessments."
+      action: "Collect information about the creation of assessments, including their structure and configuration, and retrieve detailed data about assessments that have been completed."
     },    
     response: [
       {
