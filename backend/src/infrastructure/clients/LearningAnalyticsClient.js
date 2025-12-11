@@ -93,7 +93,7 @@ export async function fetchLearningAnalyticsFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting interesting analytics about various system users (learners, instructors)."
+      action: "Collecting interesting Analytics about various system (learners, trainers)."
     },
     response: responseTemplate
   };

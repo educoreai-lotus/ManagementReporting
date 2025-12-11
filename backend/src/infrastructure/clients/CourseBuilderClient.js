@@ -33,7 +33,7 @@ export async function fetchCourseBuilderDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting information about course creation and course publishing."
+      action: "Collecting information about course creation and course publishing only (no analytics)."
     },
     response: {
       courses: [

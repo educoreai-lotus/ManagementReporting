@@ -38,7 +38,7 @@ export async function fetchDirectoryDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting information about organizations registered in the system and the number of people registered in the system."
+      action: "Collecting Directory information : organizations registered in the system and the number of people registered in the system."
     },
     response: {
       companies: [
