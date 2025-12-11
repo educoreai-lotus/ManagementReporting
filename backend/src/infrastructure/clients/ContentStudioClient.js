@@ -48,25 +48,41 @@ export async function fetchContentMetricsFromContentStudio() {
       throw new Error("Coordinator response verification failed");
     }
 
-    // 4. From here down: keep the same nested parsing logic as before
-
+    // 4. Handle both old and new response formats
     const response = coordinatorResponse.data;
-    const { payload } = response || {};
+    let data;
 
-    if (!payload || typeof payload !== "string") {
-      throw new Error("Invalid payload returned from Content Studio");
+    // Check if it's the new format (Format B): { success: true, data: { courses: [], topics_stand_alone: [] } }
+    if (response && typeof response === "object" && response.data && 
+        (response.data.courses !== undefined || response.data.topics_stand_alone !== undefined)) {
+      // Format B: New direct format
+      const courses = response.data.courses ?? [];
+      const topics_stand_alone = response.data.topics_stand_alone ?? [];
+      
+      data = {
+        courses,
+        topics_stand_alone
+      };
+    } else {
+      // Format A: Old nested string-based format
+      const { payload } = response || {};
+
+      if (!payload || typeof payload !== "string") {
+        throw new Error("Invalid payload returned from Content Studio");
+      }
+
+      // First level: { serviceName: "...", payload: "<stringified inner JSON>" }
+      const level1 = JSON.parse(payload);
+
+      if (!level1.payload || typeof level1.payload !== "string") {
+        throw new Error("Invalid inner payload structure from Content Studio");
+      }
+
+      // Second level: { courses: [...], topics_stand_alone: [...] }
+      data = JSON.parse(level1.payload);
     }
 
-    // First level: { serviceName: "...", payload: "<stringified inner JSON>" }
-    const level1 = JSON.parse(payload);
-
-    if (!level1.payload || typeof level1.payload !== "string") {
-      throw new Error("Invalid inner payload structure from Content Studio");
-    }
-
-    // Second level: { courses: [...], topics_stand_alone: [...] }
-    const data = JSON.parse(level1.payload);
-
+    // Validate both arrays exist and are arrays
     if (!data.courses || !Array.isArray(data.courses)) {
       throw new Error("Content Studio payload does not contain 'courses' array");
     }

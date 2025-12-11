@@ -72,16 +72,33 @@ export async function fetchAssessmentDataFromService() {
 
     // 3. Assessment returns ONLY the `response` as a JSON string (stringified array).
     const response = coordinatorResponse.data;
-    let filledResponse = typeof response === "string" ? JSON.parse(response) : response;
+    let parsed = typeof response === "string" ? JSON.parse(response) : response;
 
-    // 4. We expect an array of records
+    // 4. Normalize response to handle both formats:
+    // Format A (expected): [{...}, {...}] - direct array
+    // Format B (current): { success: true, data: { "0": {...}, "1": {...} } } - object with numeric keys
+    let filledResponse;
+    if (Array.isArray(parsed)) {
+      // Format A: already an array, use it directly
+      filledResponse = parsed;
+    } else if (parsed && typeof parsed === "object" && parsed.data && typeof parsed.data === "object") {
+      // Format B: convert object with numeric keys to array
+      filledResponse = Object.values(parsed.data);
+    } else {
+      // Neither format matches
+      throw new Error(
+        `Invalid response from Assessment service: expected array, got ${typeof parsed}`
+      );
+    }
+
+    // 5. Validate that normalized result is an array
     if (!Array.isArray(filledResponse)) {
       throw new Error(
         `Invalid response from Assessment service: expected array, got ${typeof filledResponse}`
       );
     }
 
-    // 5. Basic validation/logging of expected keys
+    // 6. Basic validation/logging of expected keys
     const requiredKeys = [
       "user_id",
       "course_id",

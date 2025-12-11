@@ -79,15 +79,20 @@ export async function fetchDirectoryDataFromService() {
     const response = coordinatorResponse.data;
     const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
-    if (!parsed.companies || !Array.isArray(parsed.companies)) {
+    // Support both response formats:
+    // Format A (old): { "companies": [...] }
+    // Format B (new): { "success": true, "data": { "companies": [...] } }
+    const companies = parsed?.companies ?? parsed?.data?.companies ?? null;
+
+    if (!companies || !Array.isArray(companies)) {
       throw new Error("Expected Directory response to contain { companies: [...] }");
     }
 
     console.log(
-      `[Directory Client] Received ${parsed.companies.length} companies from Directory service`
+      `[Directory Client] Received ${companies.length} companies from Directory service`
     );
 
-    return parsed.companies;
+    return companies;
   } catch (err) {
     console.error("Error calling Directory service:", err.message);
     throw err;
