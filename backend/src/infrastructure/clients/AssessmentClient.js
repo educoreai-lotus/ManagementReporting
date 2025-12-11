@@ -120,6 +120,16 @@ export async function fetchAssessmentDataFromService() {
       }
     });
 
+    // Normalize exam_type before saving to DB
+    // Convert null, undefined, empty string, or whitespace to "unknown" to satisfy DB constraint
+    filledResponse.forEach((row, index) => {
+      if (row.exam_type === null || row.exam_type === undefined || 
+          (typeof row.exam_type === 'string' && row.exam_type.trim() === '')) {
+        console.log(`[Assessment Normalize] Row at index ${index}: exam_type was empty -> replaced with "unknown"`);
+        row.exam_type = 'unknown';
+      }
+    });
+
     console.log(
       `[Assessment Client] Received ${filledResponse.length} assessment rows from Assessment service`
     );
