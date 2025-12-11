@@ -41,8 +41,8 @@ export async function fetchAssessmentDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting assessment and exam-related data"
-    },
+      action: "retrieve_enrich_and_finalize_exam_and_assessment_records_for_downstream_processing"
+    },    
     response: [
       {
         user_id: null,

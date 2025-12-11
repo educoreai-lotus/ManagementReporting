@@ -25,7 +25,7 @@ export async function fetchContentMetricsFromContentStudio() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting content-related information"
+      action: "collect_enrich_and_prepare_course_and_topic_content_structures_for_system_processing"
     },
     response: {
       courses: [],
