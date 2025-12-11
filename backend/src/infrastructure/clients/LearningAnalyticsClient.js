@@ -99,7 +99,8 @@ export async function fetchLearningAnalyticsFromService() {
   };
 
   try {
-    const coordinatorResponse = await postToCoordinator(requestObject);
+    // Learning analytics can take longer to compute; allow extended timeout (60s)
+    const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {
       throw new Error("Empty response from Learning Analytics service");

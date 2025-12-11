@@ -35,7 +35,7 @@ export async function fetchContentMetricsFromContentStudio() {
 
   try {
     // 2. Send envelope via Coordinator
-    const coordinatorResponse = await postToCoordinator(requestObject);
+    const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (!coordinatorResponse) {
       throw new Error("Empty response from Content Studio service");

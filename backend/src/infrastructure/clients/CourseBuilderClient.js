@@ -52,7 +52,7 @@ export async function fetchCourseBuilderDataFromService() {
   };
 
   try {
-    const coordinatorResponse = await postToCoordinator(requestObject);
+    const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (!coordinatorResponse) {
       throw new Error("Empty response from Course Builder service");

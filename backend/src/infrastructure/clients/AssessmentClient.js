@@ -57,7 +57,7 @@ export async function fetchAssessmentDataFromService() {
   };
 
   try {
-    const coordinatorResponse = await postToCoordinator(requestObject);
+    const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {
       throw new Error("Empty response from Assessment service");
