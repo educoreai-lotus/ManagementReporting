@@ -1,5 +1,5 @@
 import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
-import { verifyCoordinatorSignature } from "../utils/verifyCoordinatorSignature.js";
+import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.js";
 
 /**
  * Calls the Course Builder microservice.
@@ -58,31 +58,14 @@ export async function fetchCourseBuilderDataFromService() {
       throw new Error("Empty response from Course Builder service");
     }
 
-    // Extract response components for signature verification
-    const rawBodyString = coordinatorResponse.rawBodyString;
-    const headers = coordinatorResponse.headers || {};
+    // Verify Coordinator response
+    const isValid = await verifyCoordinatorResponse(coordinatorResponse.rawResponse, coordinatorResponse.data);
+
+    if (!isValid) {
+      throw new Error("Coordinator response verification failed");
+    }
+
     const response = coordinatorResponse.data;
-
-    // Verify Coordinator signature
-    const signature = headers['x-service-signature'] || headers['X-Service-Signature'];
-    const signer = headers['x-service-name'] || headers['X-Service-Name'];
-    const coordinatorPublicKey = process.env.COORDINATOR_PUBLIC_KEY;
-
-    if (!signature || !signer) {
-      throw new Error("Missing coordinator signature");
-    }
-
-    if (signer !== "coordinator") {
-      throw new Error("Unexpected signer: " + signer);
-    }
-
-    if (coordinatorPublicKey) {
-      const isValid = verifyCoordinatorSignature(coordinatorPublicKey, signature, rawBodyString);
-      if (!isValid) {
-        throw new Error("Invalid coordinator signature");
-      }
-    }
-
     const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
     if (!parsed.courses || !Array.isArray(parsed.courses)) {

@@ -1,5 +1,5 @@
 import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
-import { verifyCoordinatorSignature } from "../utils/verifyCoordinatorSignature.js";
+import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.js";
 
 /**
  * Calls the Learning Analytics microservice.
@@ -106,32 +106,15 @@ export async function fetchLearningAnalyticsFromService() {
       throw new Error("Empty response from Learning Analytics service");
     }
 
-    // Extract response components for signature verification
-    const rawBodyString = coordinatorResponse.rawBodyString;
-    const headers = coordinatorResponse.headers || {};
-    const response = coordinatorResponse.data;
+    // Verify Coordinator response
+    const isValid = await verifyCoordinatorResponse(coordinatorResponse.rawResponse, coordinatorResponse.data);
 
-    // Verify Coordinator signature
-    const signature = headers['x-service-signature'] || headers['X-Service-Signature'];
-    const signer = headers['x-service-name'] || headers['X-Service-Name'];
-    const coordinatorPublicKey = process.env.COORDINATOR_PUBLIC_KEY;
-
-    if (!signature || !signer) {
-      throw new Error("Missing coordinator signature");
-    }
-
-    if (signer !== "coordinator") {
-      throw new Error("Unexpected signer: " + signer);
-    }
-
-    if (coordinatorPublicKey) {
-      const isValid = verifyCoordinatorSignature(coordinatorPublicKey, signature, rawBodyString);
-      if (!isValid) {
-        throw new Error("Invalid coordinator signature");
-      }
+    if (!isValid) {
+      throw new Error("Coordinator response verification failed");
     }
 
     // The service returns ONLY the filled `response` object as JSON string or object
+    const response = coordinatorResponse.data;
     const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
     if (!parsed || typeof parsed !== "object") {

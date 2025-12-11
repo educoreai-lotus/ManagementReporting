@@ -154,11 +154,12 @@ export async function postToCoordinator(envelope, options = {}) {
 
     console.log(`[CoordinatorClient] ✅ Request successful`);
     
-    // Return object with raw body, headers, and parsed data for client signature verification
+    // Return object with raw body, headers, parsed data, and raw response for client signature verification
     return {
       rawBodyString,
       headers: response.headers,
-      data: parsedData
+      data: parsedData,
+      rawResponse: response
     };
   } catch (error) {
     console.error('[CoordinatorClient] ❌ Request failed', {
