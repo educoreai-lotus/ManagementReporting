@@ -115,14 +115,13 @@ export function verifySignature(serviceName, publicKeyPem, payload, signature) {
     console.log('[CoordinatorVerification-DEBUG] Calling crypto.verify with:');
     console.log('[CoordinatorVerification-DEBUG]   - algorithm: sha256');
     console.log('[CoordinatorVerification-DEBUG]   - message:', message);
-    console.log('[CoordinatorVerification-DEBUG]   - dsaEncoding: ieee-p1363');
+    console.log('[CoordinatorVerification-DEBUG]   - encoding: DER (default)');
     
     const isValid = crypto.verify(
       'sha256',
       messageBuffer,
       {
         key: publicKey,
-        dsaEncoding: 'ieee-p1363',
       },
       signatureBuffer
     );
