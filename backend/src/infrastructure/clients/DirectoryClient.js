@@ -38,7 +38,7 @@ export async function fetchDirectoryDataFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "collect_enrich_and_prepare_company_and_organization_profiles_with_structural_and_operational_attributes_for_system_processing"
+      action: "Collecting information about organizations registered in the system and the number of people registered in the system."
     },
     response: {
       companies: [

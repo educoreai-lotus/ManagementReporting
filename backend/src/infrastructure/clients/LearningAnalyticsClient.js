@@ -93,7 +93,7 @@ export async function fetchLearningAnalyticsFromService() {
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "collect_compute_and_prepare_system_wide_learning_analytics_with_aggregated_metrics_benchmarks_and_category_breakdowns_for_downstream_processing"
+      action: "Collecting interesting analytics about various system users (learners, instructors)."
     },
     response: responseTemplate
   };
