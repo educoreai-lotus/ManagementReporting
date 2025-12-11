@@ -121,12 +121,36 @@ export async function fetchAssessmentDataFromService() {
     });
 
     // Normalize exam_type before saving to DB
-    // Convert null, undefined, empty string, or whitespace to "unknown" to satisfy DB constraint
+    // DB constraint only allows: 'precourse', 'midcourse', 'postcourse'
+    // Convert null, undefined, empty string, whitespace, or invalid values to "postcourse"
+    const validExamTypes = ['precourse', 'midcourse', 'postcourse'];
+    
+    const normalizeExamType = (value) => {
+      // If null, undefined, empty string, or whitespace
+      if (value === null || value === undefined || 
+          (typeof value === 'string' && value.trim() === '')) {
+        return 'postcourse'; // Default to postcourse for empty values
+      }
+      
+      // Trim and lowercase for comparison
+      const trimmed = typeof value === 'string' ? value.trim().toLowerCase() : String(value).trim().toLowerCase();
+      
+      // If not a valid enum value, default to postcourse
+      if (!validExamTypes.includes(trimmed)) {
+        return 'postcourse';
+      }
+      
+      // Return the valid trimmed value
+      return trimmed;
+    };
+    
     filledResponse.forEach((row, index) => {
-      if (row.exam_type === null || row.exam_type === undefined || 
-          (typeof row.exam_type === 'string' && row.exam_type.trim() === '')) {
-        console.log(`[Assessment Normalize] Row at index ${index}: exam_type was empty -> replaced with "unknown"`);
-        row.exam_type = 'unknown';
+      const originalValue = row.exam_type;
+      const normalizedValue = normalizeExamType(originalValue);
+      
+      if (originalValue !== normalizedValue) {
+        console.log(`[Assessment Normalize] exam_type fixed: "${originalValue}" -> "${normalizedValue}"`);
+        row.exam_type = normalizedValue;
       }
     });
 
