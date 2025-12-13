@@ -2,93 +2,120 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.js";
 
 /**
- * Normalize course/topic status to valid PostgreSQL ENUM value
- * Maps business statuses to DB-safe values: 'active', 'archived', or 'deleted'
- * @param {string|null|undefined} status - Status value to normalize
- * @returns {string} Valid status: "active", "archived", or "deleted"
+ * PostgreSQL Schema Rules Map
+ * Defines valid values for each field type according to the actual DB schema
  */
-function normalizeCourseStatus(status) {
-  // Handle null, undefined, or empty string
-  if (status === null || status === undefined || 
-      (typeof status === 'string' && status.trim() === '')) {
-    return 'active';
+const SCHEMA_RULES = {
+  // ENUM: course_status (courses table)
+  course_status: {
+    allowed: ['active', 'archived', 'deleted'],
+    default: 'active',
+    mapping: {
+      'draft': 'active',
+      'published': 'active',
+      'active': 'active',
+      'unpublished': 'archived',
+      'hidden': 'archived',
+      'archived': 'archived',
+      'deleted': 'deleted'
+    }
+  },
+  // ENUM: topic_status (topics table)
+  topic_status: {
+    allowed: ['active', 'archived', 'deleted'],
+    default: 'active',
+    mapping: {
+      'draft': 'active',
+      'published': 'active',
+      'active': 'active',
+      'unpublished': 'archived',
+      'hidden': 'archived',
+      'archived': 'archived',
+      'deleted': 'deleted'
+    }
+  },
+  // ENUM: content_type (contents table)
+  content_type: {
+    allowed: ['avatar_video', 'text_audio', 'mind_map', 'presentation', 'code'],
+    default: 'text_audio',
+    mapping: {
+      'avatar_video': 'avatar_video',
+      'text_audio': 'text_audio',
+      'audio_text': 'text_audio',
+      'slides': 'presentation',
+      'presentation': 'presentation',
+      'mind_map': 'mind_map',
+      'code': 'code'
+    }
+  },
+  // ENUM: generation_method (contents table)
+  generation_method: {
+    allowed: ['manual', 'ai_assisted', 'mixed', 'full_ai'],
+    default: 'manual',
+    mapping: {
+      'manual': 'manual',
+      'ai': 'ai_assisted',
+      'ai_assisted': 'ai_assisted',
+      'auto': 'full_ai',
+      'generated': 'full_ai',
+      'mixed': 'mixed',
+      'full_ai': 'full_ai'
+    }
   }
-  
-  const trimmed = typeof status === 'string' ? status.trim().toLowerCase() : String(status).trim().toLowerCase();
-  
-  // Map business statuses to PostgreSQL ENUM values
-  const statusMap = {
-    'draft': 'active',
-    'published': 'active',
-    'active': 'active',
-    'unpublished': 'archived',
-    'hidden': 'archived',
-    'archived': 'archived',
-    'deleted': 'deleted'
-  };
-  
-  // Return mapped value if exists, otherwise default to 'active'
-  return statusMap[trimmed] || 'active';
+};
+
+/**
+ * Sanitize ENUM field according to PostgreSQL schema rules
+ * @param {string|null|undefined} value - Value to sanitize
+ * @param {string} fieldType - One of: 'course_status', 'topic_status', 'content_type', 'generation_method'
+ * @returns {string} Valid ENUM value
+ */
+function sanitizeEnum(value, fieldType) {
+  const rules = SCHEMA_RULES[fieldType];
+  if (!rules) {
+    throw new Error(`Unknown field type: ${fieldType}`);
+  }
+
+  // Handle null, undefined, or empty string
+  if (value === null || value === undefined || 
+      (typeof value === 'string' && value.trim() === '')) {
+    return rules.default;
+  }
+
+  const trimmed = typeof value === 'string' ? value.trim().toLowerCase() : String(value).trim().toLowerCase();
+
+  // Check if already a valid enum value
+  if (rules.allowed.includes(trimmed)) {
+    return trimmed;
+  }
+
+  // Map business value to DB value
+  if (rules.mapping[trimmed]) {
+    return rules.mapping[trimmed];
+  }
+
+  // Fallback to default
+  return rules.default;
 }
 
 /**
- * Normalize content_type to valid PostgreSQL ENUM value
- * Maps business content types to DB-safe values
- * @param {string|null|undefined} contentType - Content type value to normalize
- * @returns {string} Valid content type: "avatar_video", "text_audio", "mind_map", "presentation", or "code"
+ * Sanitize UUID field: convert empty/invalid values to NULL
+ * @param {string|null|undefined} value - UUID value to sanitize
+ * @returns {string|null} Valid UUID string or null
  */
-function normalizeContentType(contentType) {
-  // Handle null, undefined, or empty string
-  if (contentType === null || contentType === undefined || 
-      (typeof contentType === 'string' && contentType.trim() === '')) {
-    return 'text_audio';
+function sanitizeUUID(value) {
+  if (value === null || value === undefined) {
+    return null;
   }
-  
-  const trimmed = typeof contentType === 'string' ? contentType.trim().toLowerCase() : String(contentType).trim().toLowerCase();
-  
-  // Map business content types to PostgreSQL ENUM values
-  const contentTypeMap = {
-    'avatar_video': 'avatar_video',
-    'text_audio': 'text_audio',
-    'audio_text': 'text_audio',
-    'slides': 'presentation',
-    'presentation': 'presentation',
-    'mind_map': 'mind_map',
-    'code': 'code'
-  };
-  
-  // Return mapped value if exists, otherwise default to 'text_audio'
-  return contentTypeMap[trimmed] || 'text_audio';
-}
 
-/**
- * Normalize generation_method to valid PostgreSQL ENUM value
- * Maps business generation methods to DB-safe values
- * @param {string|null|undefined} generationMethod - Generation method value to normalize
- * @returns {string} Valid generation method: "manual", "ai_assisted", "mixed", or "full_ai"
- */
-function normalizeGenerationMethod(generationMethod) {
-  // Handle null, undefined, or empty string
-  if (generationMethod === null || generationMethod === undefined || 
-      (typeof generationMethod === 'string' && generationMethod.trim() === '')) {
-    return 'manual';
+  const trimmed = typeof value === 'string' ? value.trim() : String(value).trim();
+
+  // Empty string or invalid UUID format → null
+  if (trimmed === '' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return null;
   }
-  
-  const trimmed = typeof generationMethod === 'string' ? generationMethod.trim().toLowerCase() : String(generationMethod).trim().toLowerCase();
-  
-  // Map business generation methods to PostgreSQL ENUM values
-  const generationMethodMap = {
-    'manual': 'manual',
-    'ai': 'ai_assisted',
-    'ai_assisted': 'ai_assisted',
-    'auto': 'full_ai',
-    'generated': 'full_ai',
-    'mixed': 'mixed',
-    'full_ai': 'full_ai'
-  };
-  
-  // Return mapped value if exists, otherwise default to 'manual'
-  return generationMethodMap[trimmed] || 'manual';
+
+  return trimmed;
 }
 
 /**
@@ -229,28 +256,32 @@ export async function fetchContentMetricsFromContentStudio() {
       throw new Error("Content Studio payload does not contain 'topics_stand_alone' array");
     }
 
-    // Normalize status fields for all courses and topics
+    // Sanitize all fields according to PostgreSQL schema rules
+    // Courses: status (course_status ENUM)
     data.courses.forEach((course) => {
       if (course) {
-        course.status = normalizeCourseStatus(course.status);
+        course.status = sanitizeEnum(course.status, 'course_status');
         
-        // Normalize status and content_type for topics inside course
+        // Topics within course: status (topic_status ENUM)
         if (course.topics && Array.isArray(course.topics)) {
           course.topics.forEach((topic) => {
             if (topic) {
               if (topic.status !== undefined) {
-                topic.status = normalizeCourseStatus(topic.status);
+                topic.status = sanitizeEnum(topic.status, 'topic_status');
               }
               
-              // Normalize content_type and generation_method for contents inside topic
+              // Contents within topic: content_type, generation_method (ENUMs), generation_method_id (UUID)
               if (topic.contents && Array.isArray(topic.contents)) {
                 topic.contents.forEach((content) => {
                   if (content) {
                     if (content.content_type !== undefined) {
-                      content.content_type = normalizeContentType(content.content_type);
+                      content.content_type = sanitizeEnum(content.content_type, 'content_type');
                     }
                     if (content.generation_methods !== undefined) {
-                      content.generation_methods = normalizeGenerationMethod(content.generation_methods);
+                      content.generation_methods = sanitizeEnum(content.generation_methods, 'generation_method');
+                    }
+                    if (content.generation_method_id !== undefined) {
+                      content.generation_method_id = sanitizeUUID(content.generation_method_id);
                     }
                   }
                 });
@@ -261,22 +292,25 @@ export async function fetchContentMetricsFromContentStudio() {
       }
     });
 
-    // Normalize status and content_type for standalone topics
+    // Standalone topics: status (topic_status ENUM)
     data.topics_stand_alone.forEach((topic) => {
       if (topic) {
         if (topic.status !== undefined) {
-          topic.status = normalizeCourseStatus(topic.status);
+          topic.status = sanitizeEnum(topic.status, 'topic_status');
         }
         
-        // Normalize content_type and generation_method for contents inside standalone topic
+        // Contents within standalone topic: content_type, generation_method (ENUMs), generation_method_id (UUID)
         if (topic.contents && Array.isArray(topic.contents)) {
           topic.contents.forEach((content) => {
             if (content) {
               if (content.content_type !== undefined) {
-                content.content_type = normalizeContentType(content.content_type);
+                content.content_type = sanitizeEnum(content.content_type, 'content_type');
               }
               if (content.generation_methods !== undefined) {
-                content.generation_methods = normalizeGenerationMethod(content.generation_methods);
+                content.generation_methods = sanitizeEnum(content.generation_methods, 'generation_method');
+              }
+              if (content.generation_method_id !== undefined) {
+                content.generation_method_id = sanitizeUUID(content.generation_method_id);
               }
             }
           });
