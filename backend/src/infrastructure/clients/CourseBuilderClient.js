@@ -68,15 +68,42 @@ export async function fetchCourseBuilderDataFromService() {
     const response = coordinatorResponse.data;
     const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
-    if (!parsed.courses || !Array.isArray(parsed.courses)) {
+    let courses = null;
+
+    // Priority 1: New Coordinator format { success: true, data: { courses: [...] } }
+    if (parsed && typeof parsed === "object" && parsed.data && 
+        parsed.data.courses && Array.isArray(parsed.data.courses)) {
+      courses = parsed.data.courses;
+    }
+    // Priority 2: Legacy stringified payload { payload: "<stringified JSON>" }
+    else if (parsed && typeof parsed === "object" && parsed.payload && 
+             typeof parsed.payload === "string") {
+      try {
+        const payloadParsed = JSON.parse(parsed.payload);
+        if (payloadParsed && typeof payloadParsed === "object" && 
+            payloadParsed.courses && Array.isArray(payloadParsed.courses)) {
+          courses = payloadParsed.courses;
+        }
+      } catch (parseErr) {
+        // Invalid JSON in payload string - will fall through to Priority 3
+      }
+    }
+    // Priority 3: Direct format { courses: [...] }
+    else if (parsed && typeof parsed === "object" && 
+             parsed.courses && Array.isArray(parsed.courses)) {
+      courses = parsed.courses;
+    }
+
+    // Strict validation: courses must exist and be an array
+    if (!courses || !Array.isArray(courses)) {
       throw new Error("Expected Course Builder response to contain { courses: [...] }");
     }
 
     console.log(
-      `[Course Builder Client] Received ${parsed.courses.length} courses from Course Builder service`
+      `[Course Builder Client] Received ${courses.length} courses from Course Builder service`
     );
 
-    return parsed.courses;
+    return courses;
   } catch (err) {
     console.error("Error calling Course Builder service:", err.message);
     throw err;
