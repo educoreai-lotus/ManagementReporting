@@ -32,6 +32,36 @@ function normalizeCourseStatus(status) {
 }
 
 /**
+ * Normalize content_type to valid PostgreSQL ENUM value
+ * Maps business content types to DB-safe values
+ * @param {string|null|undefined} contentType - Content type value to normalize
+ * @returns {string} Valid content type: "avatar_video", "text_audio", "mind_map", "presentation", or "code"
+ */
+function normalizeContentType(contentType) {
+  // Handle null, undefined, or empty string
+  if (contentType === null || contentType === undefined || 
+      (typeof contentType === 'string' && contentType.trim() === '')) {
+    return 'text_audio';
+  }
+  
+  const trimmed = typeof contentType === 'string' ? contentType.trim().toLowerCase() : String(contentType).trim().toLowerCase();
+  
+  // Map business content types to PostgreSQL ENUM values
+  const contentTypeMap = {
+    'avatar_video': 'avatar_video',
+    'text_audio': 'text_audio',
+    'audio_text': 'text_audio',
+    'slides': 'presentation',
+    'presentation': 'presentation',
+    'mind_map': 'mind_map',
+    'code': 'code'
+  };
+  
+  // Return mapped value if exists, otherwise default to 'text_audio'
+  return contentTypeMap[trimmed] || 'text_audio';
+}
+
+/**
  * Fetches content metrics from the Content Studio microservice.
  *
  * NEW REQUEST FORMAT (similar to Assessment / CourseBuilder):
@@ -174,21 +204,43 @@ export async function fetchContentMetricsFromContentStudio() {
       if (course) {
         course.status = normalizeCourseStatus(course.status);
         
-        // Normalize status for topics inside course
+        // Normalize status and content_type for topics inside course
         if (course.topics && Array.isArray(course.topics)) {
           course.topics.forEach((topic) => {
-            if (topic && topic.status !== undefined) {
-              topic.status = normalizeCourseStatus(topic.status);
+            if (topic) {
+              if (topic.status !== undefined) {
+                topic.status = normalizeCourseStatus(topic.status);
+              }
+              
+              // Normalize content_type for contents inside topic
+              if (topic.contents && Array.isArray(topic.contents)) {
+                topic.contents.forEach((content) => {
+                  if (content && content.content_type !== undefined) {
+                    content.content_type = normalizeContentType(content.content_type);
+                  }
+                });
+              }
             }
           });
         }
       }
     });
 
-    // Normalize status for standalone topics
+    // Normalize status and content_type for standalone topics
     data.topics_stand_alone.forEach((topic) => {
-      if (topic && topic.status !== undefined) {
-        topic.status = normalizeCourseStatus(topic.status);
+      if (topic) {
+        if (topic.status !== undefined) {
+          topic.status = normalizeCourseStatus(topic.status);
+        }
+        
+        // Normalize content_type for contents inside standalone topic
+        if (topic.contents && Array.isArray(topic.contents)) {
+          topic.contents.forEach((content) => {
+            if (content && content.content_type !== undefined) {
+              content.content_type = normalizeContentType(content.content_type);
+            }
+          });
+        }
       }
     });
 
