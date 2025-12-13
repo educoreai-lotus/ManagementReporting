@@ -62,6 +62,36 @@ function normalizeContentType(contentType) {
 }
 
 /**
+ * Normalize generation_method to valid PostgreSQL ENUM value
+ * Maps business generation methods to DB-safe values
+ * @param {string|null|undefined} generationMethod - Generation method value to normalize
+ * @returns {string} Valid generation method: "manual", "ai_assisted", "mixed", or "full_ai"
+ */
+function normalizeGenerationMethod(generationMethod) {
+  // Handle null, undefined, or empty string
+  if (generationMethod === null || generationMethod === undefined || 
+      (typeof generationMethod === 'string' && generationMethod.trim() === '')) {
+    return 'manual';
+  }
+  
+  const trimmed = typeof generationMethod === 'string' ? generationMethod.trim().toLowerCase() : String(generationMethod).trim().toLowerCase();
+  
+  // Map business generation methods to PostgreSQL ENUM values
+  const generationMethodMap = {
+    'manual': 'manual',
+    'ai': 'ai_assisted',
+    'ai_assisted': 'ai_assisted',
+    'auto': 'full_ai',
+    'generated': 'full_ai',
+    'mixed': 'mixed',
+    'full_ai': 'full_ai'
+  };
+  
+  // Return mapped value if exists, otherwise default to 'manual'
+  return generationMethodMap[trimmed] || 'manual';
+}
+
+/**
  * Fetches content metrics from the Content Studio microservice.
  *
  * NEW REQUEST FORMAT (similar to Assessment / CourseBuilder):
@@ -212,11 +242,16 @@ export async function fetchContentMetricsFromContentStudio() {
                 topic.status = normalizeCourseStatus(topic.status);
               }
               
-              // Normalize content_type for contents inside topic
+              // Normalize content_type and generation_method for contents inside topic
               if (topic.contents && Array.isArray(topic.contents)) {
                 topic.contents.forEach((content) => {
-                  if (content && content.content_type !== undefined) {
-                    content.content_type = normalizeContentType(content.content_type);
+                  if (content) {
+                    if (content.content_type !== undefined) {
+                      content.content_type = normalizeContentType(content.content_type);
+                    }
+                    if (content.generation_methods !== undefined) {
+                      content.generation_methods = normalizeGenerationMethod(content.generation_methods);
+                    }
                   }
                 });
               }
@@ -233,11 +268,16 @@ export async function fetchContentMetricsFromContentStudio() {
           topic.status = normalizeCourseStatus(topic.status);
         }
         
-        // Normalize content_type for contents inside standalone topic
+        // Normalize content_type and generation_method for contents inside standalone topic
         if (topic.contents && Array.isArray(topic.contents)) {
           topic.contents.forEach((content) => {
-            if (content && content.content_type !== undefined) {
-              content.content_type = normalizeContentType(content.content_type);
+            if (content) {
+              if (content.content_type !== undefined) {
+                content.content_type = normalizeContentType(content.content_type);
+              }
+              if (content.generation_methods !== undefined) {
+                content.generation_methods = normalizeGenerationMethod(content.generation_methods);
+              }
             }
           });
         }
