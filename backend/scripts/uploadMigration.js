@@ -430,54 +430,70 @@ async function uploadMigration() {
     console.log(`   Coordinator URL: ${cleanCoordinatorUrl}`);
     console.log('');
 
-    // Check if migration was already sent (via environment variable flag)
-    const MIGRATION_SENT = process.env.MIGRATION_SENT === 'true' || process.env.MIGRATION_ALREADY_SENT === 'true';
-    if (MIGRATION_SENT) {
+    // Check for force flag - if set, skip all checks and force upload
+    const MIGRATION_FORCE = process.env.MIGRATION_FORCE === 'true';
+    if (MIGRATION_FORCE) {
       console.log('');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('✅ MIGRATION ALREADY SENT (FLAG SET)');
+      console.log('⚡ FORCE UPLOAD MODE ENABLED');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
-      console.log('ℹ️  Migration upload flag is set - skipping upload.');
-      console.log('   Environment variable MIGRATION_SENT or MIGRATION_ALREADY_SENT is set to "true".');
-      console.log('');
-      console.log('💡 To send migration again, remove the flag from environment variables.');
-      console.log('');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('✅ SKIPPING UPLOAD - Migration already sent flag detected');
-      console.log('═══════════════════════════════════════════════════════════');
-      return { success: true, status: 'skipped', message: 'Migration already sent - flag detected' };
-    }
-
-    // Check if service is already active
-    const currentStatus = await checkServiceStatus();
-    if (currentStatus === 'active') {
-      console.log('');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('✅ SERVICE IS ALREADY ACTIVE');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('');
-      console.log('ℹ️  Your service is already registered and active.');
-      console.log('   Migration file has already been uploaded.');
-      console.log('');
-      console.log('💡 To update the migration file, you can:');
-      console.log('   1. Wait for the service to be deactivated');
-      console.log('   2. Or contact the Coordinator administrator');
-      console.log('');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('✅ SKIPPING UPLOAD - Service already active');
-      console.log('═══════════════════════════════════════════════════════════');
-      return { success: true, status: 'active', message: 'Service already active - upload skipped' };
-    } else if (currentStatus === 'pending_migration') {
-      console.log(`   Current Status: ${currentStatus}`);
-      console.log('   ✅ Status is pending_migration - proceeding with upload...');
-      console.log('');
-    } else if (currentStatus) {
-      console.log(`   Current Status: ${currentStatus}`);
-      console.log('   Proceeding with migration upload...');
+      console.log('ℹ️  MIGRATION_FORCE is set to "true" - skipping all checks and forcing upload.');
       console.log('');
     } else {
-      console.log('   Status check unavailable - proceeding with upload...');
+      // Check if migration was already sent (via environment variable flag)
+      const MIGRATION_SENT = process.env.MIGRATION_SENT === 'true' || process.env.MIGRATION_ALREADY_SENT === 'true';
+      if (MIGRATION_SENT) {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ MIGRATION ALREADY SENT (FLAG SET)');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('');
+        console.log('ℹ️  Migration upload flag is set - skipping upload.');
+        console.log('   Environment variable MIGRATION_SENT or MIGRATION_ALREADY_SENT is set to "true".');
+        console.log('');
+        console.log('💡 To send migration again, set MIGRATION_FORCE=true or remove the flag from environment variables.');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ SKIPPING UPLOAD - Migration already sent flag detected');
+        console.log('═══════════════════════════════════════════════════════════');
+        return { success: true, status: 'skipped', message: 'Migration already sent - flag detected' };
+      }
+
+      // Check if service is already active (only if not forcing)
+      const currentStatus = await checkServiceStatus();
+      if (currentStatus === 'active') {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ SERVICE IS ALREADY ACTIVE');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('');
+        console.log('ℹ️  Your service is already registered and active.');
+        console.log('   Migration file has already been uploaded.');
+        console.log('');
+        console.log('💡 To force upload migration again, set MIGRATION_FORCE=true');
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ SKIPPING UPLOAD - Service already active');
+        console.log('═══════════════════════════════════════════════════════════');
+        return { success: true, status: 'active', message: 'Service already active - upload skipped' };
+      } else if (currentStatus === 'pending_migration') {
+        console.log(`   Current Status: ${currentStatus}`);
+        console.log('   ✅ Status is pending_migration - proceeding with upload...');
+        console.log('');
+      } else if (currentStatus) {
+        console.log(`   Current Status: ${currentStatus}`);
+        console.log('   Proceeding with migration upload...');
+        console.log('');
+      } else {
+        console.log('   Status check unavailable - proceeding with upload...');
+        console.log('');
+      }
+    }
+    
+    // If force mode, log that we're proceeding
+    if (MIGRATION_FORCE) {
+      console.log('   ⚡ Force mode: Skipping status check, proceeding with upload...');
       console.log('');
     }
     console.log('📊 Migration File Summary:');
@@ -659,6 +675,9 @@ export async function uploadMigrationOnStartup() {
     throw error;
   }
 }
+
+// Default export for server.js
+export default uploadMigrationOnStartup;
 
 // Run the upload if script is executed directly (not imported)
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.includes('uploadMigration.js')) {
