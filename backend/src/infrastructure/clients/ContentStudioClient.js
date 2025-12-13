@@ -2,6 +2,28 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.js";
 
 /**
+ * Normalize course/topic status to valid enum value
+ * @param {string|null|undefined} status - Status value to normalize
+ * @returns {string} Valid status: "draft", "published", or "archived"
+ */
+function normalizeCourseStatus(status) {
+  const validStatuses = ['draft', 'published', 'archived'];
+  
+  if (status === null || status === undefined || 
+      (typeof status === 'string' && status.trim() === '')) {
+    return 'draft';
+  }
+  
+  const trimmed = typeof status === 'string' ? status.trim().toLowerCase() : String(status).trim().toLowerCase();
+  
+  if (!validStatuses.includes(trimmed)) {
+    return 'draft';
+  }
+  
+  return trimmed;
+}
+
+/**
  * Fetches content metrics from the Content Studio microservice.
  *
  * NEW REQUEST FORMAT (similar to Assessment / CourseBuilder):
@@ -138,6 +160,29 @@ export async function fetchContentMetricsFromContentStudio() {
     if (!data.topics_stand_alone || !Array.isArray(data.topics_stand_alone)) {
       throw new Error("Content Studio payload does not contain 'topics_stand_alone' array");
     }
+
+    // Normalize status fields for all courses and topics
+    data.courses.forEach((course) => {
+      if (course) {
+        course.status = normalizeCourseStatus(course.status);
+        
+        // Normalize status for topics inside course
+        if (course.topics && Array.isArray(course.topics)) {
+          course.topics.forEach((topic) => {
+            if (topic && topic.status !== undefined) {
+              topic.status = normalizeCourseStatus(topic.status);
+            }
+          });
+        }
+      }
+    });
+
+    // Normalize status for standalone topics
+    data.topics_stand_alone.forEach((topic) => {
+      if (topic && topic.status !== undefined) {
+        topic.status = normalizeCourseStatus(topic.status);
+      }
+    });
 
     return data;
   } catch (err) {
