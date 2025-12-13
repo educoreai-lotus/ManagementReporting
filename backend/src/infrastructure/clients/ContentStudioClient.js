@@ -28,8 +28,56 @@ export async function fetchContentMetricsFromContentStudio() {
       action: "Collecting information about content creation, content types, and content creators."
     },
     response: {
-      courses: [],
-      topics_stand_alone: []
+      courses: [
+        {
+          course_id: "",
+          course_name: "",
+          course_language: "",
+          trainer_id: "",
+          trainer_name: "",
+          permission: "",
+          total_usage_count: 0,
+          created_at: "",
+          status: "",
+          topics: [
+            {
+              topic_id: "",
+              topic_name: "",
+              topic_language: "",
+              skills: [],
+              contents: [
+                {
+                  content_id: "",
+                  content_type: "",
+                  content_data: {},
+                  generation_methods: "",
+                  generation_method_id: ""
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      topics_stand_alone: [
+        {
+          topic_id: "",
+          topic_name: "",
+          topic_language: "",
+          skills: [],
+          total_usage_count: 0,
+          created_at: "",
+          status: "",
+          contents: [
+            {
+              content_id: "",
+              content_type: "",
+              content_data: {},
+              generation_methods: "",
+              generation_method_id: ""
+            }
+          ]
+        }
+      ]
     }
   };
 
