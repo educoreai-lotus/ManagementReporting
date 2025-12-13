@@ -2,25 +2,33 @@ import { postToCoordinator } from "../coordinatorClient/coordinatorClient.js";
 import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.js";
 
 /**
- * Normalize course/topic status to valid enum value
+ * Normalize course/topic status to valid PostgreSQL ENUM value
+ * Maps business statuses to DB-safe values: 'active', 'archived', or 'deleted'
  * @param {string|null|undefined} status - Status value to normalize
- * @returns {string} Valid status: "draft", "published", or "archived"
+ * @returns {string} Valid status: "active", "archived", or "deleted"
  */
 function normalizeCourseStatus(status) {
-  const validStatuses = ['draft', 'published', 'archived'];
-  
+  // Handle null, undefined, or empty string
   if (status === null || status === undefined || 
       (typeof status === 'string' && status.trim() === '')) {
-    return 'draft';
+    return 'active';
   }
   
   const trimmed = typeof status === 'string' ? status.trim().toLowerCase() : String(status).trim().toLowerCase();
   
-  if (!validStatuses.includes(trimmed)) {
-    return 'draft';
-  }
+  // Map business statuses to PostgreSQL ENUM values
+  const statusMap = {
+    'draft': 'active',
+    'published': 'active',
+    'active': 'active',
+    'unpublished': 'archived',
+    'hidden': 'archived',
+    'archived': 'archived',
+    'deleted': 'deleted'
+  };
   
-  return trimmed;
+  // Return mapped value if exists, otherwise default to 'active'
+  return statusMap[trimmed] || 'active';
 }
 
 /**
