@@ -99,7 +99,11 @@ export async function fetchLearningAnalyticsFromService() {
   };
 
   try {
-    // Learning analytics can take longer to compute; allow extended timeout (60s)
+    // Learning Analytics is a computationally heavy service that performs complex aggregations
+    // across large datasets. It may take 30-60+ seconds to complete, especially during peak usage.
+    // The Coordinator may return 502 (Bad Gateway) if the downstream service exceeds its timeout.
+    // We set an extended client timeout (60s) to allow sufficient time for the operation to complete,
+    // though this does not control the Coordinator's internal timeout settings.
     const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {
@@ -127,6 +131,23 @@ export async function fetchLearningAnalyticsFromService() {
 
     return parsed;
   } catch (err) {
+    // Preserve original error information, especially for timeout-related 502 errors
+    // The Coordinator returns 502 (Bad Gateway) when the downstream Learning Analytics service
+    // does not respond within the Coordinator's internal timeout window, even if our client
+    // timeout (60s) has not been exceeded.
+    if (err.response?.status === 502) {
+      const originalMessage = err.message || "Learning Analytics service timeout";
+      const responseData = err.response?.data || "";
+      console.error(
+        "[Learning Analytics Client] Service timeout (502 Bad Gateway):",
+        originalMessage,
+        responseData ? `- Response: ${JSON.stringify(responseData)}` : ""
+      );
+      // Preserve and rethrow the original error with all its context
+      throw err;
+    }
+
+    // For all other errors, preserve and rethrow the original error
     console.error("Error calling Learning Analytics service:", err.message);
     throw err;
   }
