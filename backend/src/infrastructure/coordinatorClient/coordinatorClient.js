@@ -11,6 +11,7 @@ const SERVICE_NAME = process.env.MR_NAME || 'managementreporting-service';
  * @param {Object} options - Optional configuration
  * @param {string} options.endpoint - Custom endpoint (default: /api/fill-content-metrics/)
  * @param {number} options.timeout - Request timeout in ms (default: 30000)
+ * @param {number} options.requestTimeoutHeader - Optional timeout hint for Coordinator in ms (sends X-Request-Timeout header)
  * @returns {Promise<Object>} Response data from Coordinator
  * @throws {Error} If request fails
  */
@@ -96,14 +97,25 @@ export async function postToCoordinator(envelope, options = {}) {
     console.log('[CoordinatorClient] Signed payload hash (sha256 hex):', preSendHash);
     console.log('[CoordinatorClient] Signed message+signature ready');
 
+    // Build headers object with required headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Service-Name': SERVICE_NAME,
+      'X-Signature': signature,
+    };
+
+    // Conditionally add X-Request-Timeout header if requested
+    // This is a hint to the Coordinator about desired downstream timeout
+    // It does NOT affect client-side timeout (controlled by axios timeout option)
+    // It is NOT included in signature generation or payload hashing
+    if (options.requestTimeoutHeader !== undefined && options.requestTimeoutHeader !== null) {
+      headers['X-Request-Timeout'] = String(options.requestTimeoutHeader);
+    }
+
     // Send POST request with signature headers
     // Use responseType: 'text' to get raw body string for signature verification
     const response = await axios.post(url, envelopeForSigning, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Service-Name': SERVICE_NAME,
-        'X-Signature': signature,
-      },
+      headers,
       timeout,
       responseType: 'text', // Get raw string for signature verification
       transformResponse: [(data) => data], // Prevent automatic JSON parsing
