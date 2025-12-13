@@ -104,6 +104,7 @@ export async function fetchLearningAnalyticsFromService() {
     // The Coordinator may return 502 (Bad Gateway) if the downstream service exceeds its timeout.
     // We set an extended client timeout (60s) to allow sufficient time for the operation to complete,
     // though this does not control the Coordinator's internal timeout settings.
+    // Trigger deployment
     const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {
