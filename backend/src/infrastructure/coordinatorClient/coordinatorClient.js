@@ -108,6 +108,7 @@ export async function postToCoordinator(envelope, options = {}) {
     // This is a hint to the Coordinator about desired downstream timeout
     // It does NOT affect client-side timeout (controlled by axios timeout option)
     // It is NOT included in signature generation or payload hashing
+    // Trigger deployment
     if (options.requestTimeoutHeader !== undefined && options.requestTimeoutHeader !== null) {
       headers['X-Request-Timeout'] = String(options.requestTimeoutHeader);
     }
