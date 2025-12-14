@@ -100,12 +100,17 @@ export async function fetchLearningAnalyticsFromService() {
 
   try {
     // Learning Analytics is a computationally heavy service that performs complex aggregations
-    // across large datasets. It may take 30-60+ seconds to complete, especially during peak usage.
-    // The Coordinator may return 502 (Bad Gateway) if the downstream service exceeds its timeout.
-    // We set an extended client timeout (60s) to allow sufficient time for the operation to complete,
-    // though this does not control the Coordinator's internal timeout settings.
-    // Trigger deployment
-    const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
+    // across large datasets. It may take 90-180+ seconds to complete, especially during peak usage.
+    // We use an extended client timeout (180s) and request the Coordinator to use the same timeout
+    // for the downstream service to allow sufficient time for the operation to complete.
+    const extendedTimeout = 180000; // 3 minutes
+    console.log(
+      `[Learning Analytics Client] Using extended timeout (${extendedTimeout}ms) for heavy aggregation service`
+    );
+    const coordinatorResponse = await postToCoordinator(requestObject, { 
+      timeout: extendedTimeout,
+      requestTimeoutHeader: extendedTimeout
+    });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {
       throw new Error("Empty response from Learning Analytics service");
