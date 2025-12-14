@@ -213,14 +213,27 @@ export async function fetchContentMetricsFromContentStudio() {
       throw new Error("Coordinator response verification failed");
     }
 
-    // 4. Handle both old and new response formats
+    // 4. Handle all supported response formats
     const response = coordinatorResponse.data;
     let data;
 
-    // Check if it's the new format (Format B): { success: true, data: { courses: [], topics_stand_alone: [] } }
-    if (response && typeof response === "object" && response.data && 
+    // Format 1: Coordinator wrapped response { response: { courses: [...], topics_stand_alone: [...] } }
+    if (response && typeof response === "object" && response.response && 
+        typeof response.response === "object" &&
+        (response.response.courses !== undefined || response.response.topics_stand_alone !== undefined)) {
+      // Format 1: Coordinator wrapped response
+      const courses = response.response.courses ?? [];
+      const topics_stand_alone = response.response.topics_stand_alone ?? [];
+      
+      data = {
+        courses,
+        topics_stand_alone
+      };
+    }
+    // Format 2: New coordinator format { data: { courses: [], topics_stand_alone: [] } }
+    else if (response && typeof response === "object" && response.data && 
         (response.data.courses !== undefined || response.data.topics_stand_alone !== undefined)) {
-      // Format B: New direct format
+      // Format 2: New direct format
       const courses = response.data.courses ?? [];
       const topics_stand_alone = response.data.topics_stand_alone ?? [];
       
@@ -228,23 +241,27 @@ export async function fetchContentMetricsFromContentStudio() {
         courses,
         topics_stand_alone
       };
+    }
+    // Format 3: Legacy double-stringified payload
+    else if (response && typeof response === "object" && response.payload && 
+             typeof response.payload === "string") {
+      // Format 3: Old nested string-based format
+      try {
+        // First level: { serviceName: "...", payload: "<stringified inner JSON>" }
+        const level1 = JSON.parse(response.payload);
+
+        if (!level1.payload || typeof level1.payload !== "string") {
+          throw new Error("Invalid inner payload structure from Content Studio");
+        }
+
+        // Second level: { courses: [...], topics_stand_alone: [...] }
+        data = JSON.parse(level1.payload);
+      } catch (parseErr) {
+        throw new Error(`Invalid payload returned from Content Studio: ${parseErr.message}`);
+      }
     } else {
-      // Format A: Old nested string-based format
-      const { payload } = response || {};
-
-      if (!payload || typeof payload !== "string") {
-        throw new Error("Invalid payload returned from Content Studio");
-      }
-
-      // First level: { serviceName: "...", payload: "<stringified inner JSON>" }
-      const level1 = JSON.parse(payload);
-
-      if (!level1.payload || typeof level1.payload !== "string") {
-        throw new Error("Invalid inner payload structure from Content Studio");
-      }
-
-      // Second level: { courses: [...], topics_stand_alone: [...] }
-      data = JSON.parse(level1.payload);
+      // None of the supported formats match
+      throw new Error("Invalid payload returned from Content Studio");
     }
 
     // Validate both arrays exist and are arrays
