@@ -74,18 +74,24 @@ export async function fetchAssessmentDataFromService() {
     const response = coordinatorResponse.data;
     let parsed = typeof response === "string" ? JSON.parse(response) : response;
 
-    // 4. Normalize response to handle both formats:
+    // 4. Normalize response to handle all supported formats:
     // Format A (expected): [{...}, {...}] - direct array
-    // Format B (current): { success: true, data: { "0": {...}, "1": {...} } } - object with numeric keys
+    // Format B (legacy): { success: true, data: { "0": {...}, "1": {...} } } - object with numeric keys
+    // Format C (Coordinator wrapped): { response: { answer: [...] } } - Coordinator wrapped response
     let filledResponse;
     if (Array.isArray(parsed)) {
       // Format A: already an array, use it directly
       filledResponse = parsed;
+    } else if (parsed && typeof parsed === "object" && parsed.response && 
+               typeof parsed.response === "object" && parsed.response.answer && 
+               Array.isArray(parsed.response.answer)) {
+      // Format C: Coordinator wrapped response with answer array
+      filledResponse = parsed.response.answer;
     } else if (parsed && typeof parsed === "object" && parsed.data && typeof parsed.data === "object") {
       // Format B: convert object with numeric keys to array
       filledResponse = Object.values(parsed.data);
     } else {
-      // Neither format matches
+      // None of the supported formats match
       throw new Error(
         `Invalid response from Assessment service: expected array, got ${typeof parsed}`
       );
