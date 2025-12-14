@@ -70,12 +70,18 @@ export async function fetchCourseBuilderDataFromService() {
 
     let courses = null;
 
-    // Priority 1: New Coordinator format { success: true, data: { courses: [...] } }
-    if (parsed && typeof parsed === "object" && parsed.data && 
+    // Priority 1: Coordinator wrapped response { response: { courses: [...] } }
+    if (parsed && typeof parsed === "object" && parsed.response && 
+        typeof parsed.response === "object" && parsed.response.courses && 
+        Array.isArray(parsed.response.courses)) {
+      courses = parsed.response.courses;
+    }
+    // Priority 2: New Coordinator format { success: true, data: { courses: [...] } }
+    else if (parsed && typeof parsed === "object" && parsed.data && 
         parsed.data.courses && Array.isArray(parsed.data.courses)) {
       courses = parsed.data.courses;
     }
-    // Priority 2: Legacy stringified payload { payload: "<stringified JSON>" }
+    // Priority 3: Legacy stringified payload { payload: "<stringified JSON>" }
     else if (parsed && typeof parsed === "object" && parsed.payload && 
              typeof parsed.payload === "string") {
       try {
@@ -85,10 +91,10 @@ export async function fetchCourseBuilderDataFromService() {
           courses = payloadParsed.courses;
         }
       } catch (parseErr) {
-        // Invalid JSON in payload string - will fall through to Priority 3
+        // Invalid JSON in payload string - will fall through to Priority 4
       }
     }
-    // Priority 3: Direct format { courses: [...] }
+    // Priority 4: Direct format { courses: [...] }
     else if (parsed && typeof parsed === "object" && 
              parsed.courses && Array.isArray(parsed.courses)) {
       courses = parsed.courses;
