@@ -132,15 +132,35 @@ export async function fetchLearningAnalyticsFromService() {
 
     return parsed;
   } catch (err) {
-    // Preserve original error information, especially for timeout-related 502 errors
-    // The Coordinator returns 502 (Bad Gateway) when the downstream Learning Analytics service
+    // Handle timeout errors explicitly
+    // Timeout errors occur when the request exceeds the client timeout (60s)
+    // This is expected for a heavy aggregation service and should not affect other services
+    const isTimeoutError = err.code === 'ECONNABORTED' || 
+                          (err.message && err.message.includes('timeout')) ||
+                          (err.message && err.message.includes('exceeded'));
+    
+    if (isTimeoutError) {
+      console.error(
+        "[Learning Analytics Client] ⏱️ Request timeout (60s exceeded):",
+        "Learning Analytics service did not respond within the allocated time window.",
+        "This is expected for heavy aggregation operations. The system will continue using cached data.",
+        `Error: ${err.message}`
+      );
+      // Preserve and rethrow the original error - caller will handle gracefully with cached data
+      throw err;
+    }
+
+    // Handle 502 Bad Gateway errors from Coordinator
+    // The Coordinator returns 502 when the downstream Learning Analytics service
     // does not respond within the Coordinator's internal timeout window, even if our client
     // timeout (60s) has not been exceeded.
     if (err.response?.status === 502) {
       const originalMessage = err.message || "Learning Analytics service timeout";
       const responseData = err.response?.data || "";
       console.error(
-        "[Learning Analytics Client] Service timeout (502 Bad Gateway):",
+        "[Learning Analytics Client] Service unavailable (502 Bad Gateway):",
+        "Coordinator reports that Learning Analytics service did not respond in time.",
+        "The system will continue using cached data.",
         originalMessage,
         responseData ? `- Response: ${JSON.stringify(responseData)}` : ""
       );
@@ -149,7 +169,10 @@ export async function fetchLearningAnalyticsFromService() {
     }
 
     // For all other errors, preserve and rethrow the original error
-    console.error("Error calling Learning Analytics service:", err.message);
+    console.error(
+      "[Learning Analytics Client] Error calling Learning Analytics service:",
+      err.message
+    );
     throw err;
   }
 }
