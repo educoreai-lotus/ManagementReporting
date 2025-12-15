@@ -100,6 +100,33 @@ export async function fetchDirectoryDataFromService() {
       `[Directory Client] Received ${companies.length} companies from Directory service`
     );
 
+    // Normalize kpis and hierarchy before returning
+    companies.forEach(company => {
+      if (!company) return;
+
+      // --- Normalize KPIs (string -> array) ---
+      if (typeof company.kpis === "string") {
+        company.kpis = company.kpis
+          .split(";")
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+
+      // --- Normalize empty / undefined hierarchy ---
+      if (company.hierarchy === "" || company.hierarchy === undefined) {
+        company.hierarchy = null;
+      }
+
+      // If hierarchy comes as a JSON string, try to parse
+      if (typeof company.hierarchy === "string") {
+        try {
+          company.hierarchy = JSON.parse(company.hierarchy);
+        } catch {
+          company.hierarchy = null; // fallback for invalid JSON
+        }
+      }
+    });
+
     return companies;
   } catch (err) {
     console.error("Error calling Directory service:", err.message);
