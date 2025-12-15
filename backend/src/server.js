@@ -8,6 +8,7 @@ import openaiRoutes from './presentation/routes/openai.js';
 import chartTranscriptionRoutes from './presentation/routes/chartTranscription.js';
 import healthRoutes from './presentation/routes/health.js';
 import ragRoutes from './presentation/routes/rag.js';
+import { startGrpcServer } from './grpc/server.js';
 import aiCustomRoutes from './presentation/routes/aiCustom.js';
 import { errorHandler } from './presentation/middleware/errorHandler.js';
 import { auditMiddleware } from './presentation/middleware/auditMiddleware.js';
@@ -86,10 +87,12 @@ app.use('/api/ai-custom', aiCustomRoutes); // AI Custom endpoint: /api/ai-custom
 // Error handling
 app.use(errorHandler);
 
-// Start server
+// Start HTTP server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  // Start gRPC server for Process RPC (RAG integration)
+  startGrpcServer();
   
   // ⚠️ CRITICAL: Run initialization in background - don't block server startup
   // Railway healthcheck needs server to respond immediately
