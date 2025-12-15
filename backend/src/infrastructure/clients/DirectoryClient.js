@@ -79,13 +79,19 @@ export async function fetchDirectoryDataFromService() {
     const response = coordinatorResponse.data;
     const parsed = typeof response === "string" ? JSON.parse(response) : response;
 
-    // Support both response formats:
+    // Support multiple response formats:
     // Format A (old): { "companies": [...] }
     // Format B (new): { "success": true, "data": { "companies": [...] } }
-    const companies = parsed?.companies ?? parsed?.data?.companies ?? null;
+    // Format C (nested payload): { "data": { "payload": { "companies": [...] } } }
+    const companies =
+      parsed?.companies ??
+      parsed?.data?.companies ??
+      parsed?.data?.payload?.companies ??
+      [];
 
-    if (!companies || !Array.isArray(companies)) {
-      throw new Error("Expected Directory response to contain { companies: [...] }");
+    if (!Array.isArray(companies)) {
+      console.warn("[Directory Client] Warning: Directory returned invalid companies array. Using empty list.");
+      return [];
     }
 
     console.log(
