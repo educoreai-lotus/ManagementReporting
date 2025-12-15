@@ -100,34 +100,78 @@ export async function fetchDirectoryDataFromService() {
       `[Directory Client] Received ${companies.length} companies from Directory service`
     );
 
-    // Normalize kpis and hierarchy before returning
-    companies.forEach(company => {
-      if (!company) return;
+    // Normalize and whitelist Directory data before returning
+    const ALLOWED_FIELDS = [
+      "company_id",
+      "company_name",
+      "industry",
+      "company_size",
+      "date_registered",
+      "primary_hr_contact",
+      "approval_policy",
+      "decision_maker",
+      "kpis",
+      "max_test_attempts",
+      "website_url",
+      "verification_status",
+      "hierarchy",
+    ];
+
+    const sanitizedCompanies = companies.map((company) => {
+      if (!company) return null;
+
+      const normalized = { ...company };
 
       // --- Normalize KPIs (string -> array) ---
-      if (typeof company.kpis === "string") {
-        company.kpis = company.kpis
-          .split(";")
-          .map(s => s.trim())
-          .filter(Boolean);
-      }
-
-      // --- Normalize empty / undefined hierarchy ---
-      if (company.hierarchy === "" || company.hierarchy === undefined) {
-        company.hierarchy = null;
-      }
-
-      // If hierarchy comes as a JSON string, try to parse
-      if (typeof company.hierarchy === "string") {
+      if (typeof normalized.kpis === "string") {
         try {
-          company.hierarchy = JSON.parse(company.hierarchy);
+          normalized.kpis = normalized.kpis
+            .split(";")
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+          // If after normalization we get an empty array, keep it as [] (valid jsonb)
         } catch {
-          company.hierarchy = null; // fallback for invalid JSON
+          normalized.kpis = null;
+        }
+      } else if (Array.isArray(normalized.kpis)) {
+        // keep as-is (valid jsonb)
+      } else if (normalized.kpis === undefined) {
+        normalized.kpis = null;
+      }
+
+      // --- Normalize hierarchy ---
+      // If empty string or undefined -> null
+      if (normalized.hierarchy === "" || normalized.hierarchy === undefined) {
+        normalized.hierarchy = null;
+      }
+
+      // If hierarchy is a string, try to parse JSON; on failure -> null
+      if (typeof normalized.hierarchy === "string") {
+        try {
+          normalized.hierarchy = JSON.parse(normalized.hierarchy);
+        } catch {
+          normalized.hierarchy = null;
         }
       }
-    });
 
-    return companies;
+      // If hierarchy is array or object -> keep as-is
+      // (no additional handling needed; both are valid for jsonb)
+
+      // Whitelist only allowed fields
+      const whitelisted = {};
+      ALLOWED_FIELDS.forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(normalized, field)) {
+          whitelisted[field] = normalized[field];
+        } else {
+          whitelisted[field] = null;
+        }
+      });
+
+      return whitelisted;
+    }).filter(Boolean);
+
+    return sanitizedCompanies;
   } catch (err) {
     console.error("Error calling Directory service:", err.message);
     throw err;

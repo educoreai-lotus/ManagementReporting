@@ -24,7 +24,21 @@ export async function saveDirectorySnapshot(dataArray) {
   try {
     await client.query("BEGIN");
 
+    // Debug log full payload before writing to DB (for diagnostics)
+    console.log("[Directory Cache] Incoming dataArray:", JSON.stringify(dataArray, null, 2));
+
     for (const data of dataArray) {
+      // Ensure jsonb fields are always null / array / object (never plain string)
+      const safeKpis =
+        Array.isArray(data.kpis) || (data.kpis && typeof data.kpis === "object")
+          ? data.kpis
+          : null;
+
+      const safeHierarchy =
+        Array.isArray(data.hierarchy) || (data.hierarchy && typeof data.hierarchy === "object")
+          ? data.hierarchy
+          : null;
+
       await withRetry(async () => {
         return await client.query(
           `
@@ -72,11 +86,11 @@ export async function saveDirectorySnapshot(dataArray) {
             data.primary_hr_contact ?? null,
             data.approval_policy ?? null,
             data.decision_maker ?? null,
-            data.kpis ?? null, // jsonb
+            safeKpis, // jsonb (array or object or null)
             data.max_test_attempts ?? null,
             data.website_url ?? null,
             data.verification_status ?? null,
-            data.hierarchy ?? null, // jsonb
+            safeHierarchy, // jsonb (array or object or null)
             now
           ]
         );
