@@ -83,10 +83,12 @@ export async function fetchDirectoryDataFromService() {
     // Format A (old): { "companies": [...] }
     // Format B (new): { "success": true, "data": { "companies": [...] } }
     // Format C (nested payload): { "data": { "payload": { "companies": [...] } } }
+    // Format D (Coordinator-wrapped): { "response": { "companies": [...] } }
     const companies =
       parsed?.companies ??
       parsed?.data?.companies ??
       parsed?.data?.payload?.companies ??
+      parsed?.response?.companies ??
       [];
 
     if (!Array.isArray(companies)) {
