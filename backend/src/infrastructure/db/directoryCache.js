@@ -39,6 +39,19 @@ export async function saveDirectorySnapshot(dataArray) {
           ? data.hierarchy
           : null;
 
+      // Node-postgres sends JS values as text; for jsonb columns we explicitly
+      // send JSON literals (stringified) so PostgreSQL always receives valid JSON,
+      // avoiding "invalid input syntax for type json" errors.
+      const jsonKpis = safeKpis === null ? null : JSON.stringify(safeKpis);
+      const jsonHierarchy = safeHierarchy === null ? null : JSON.stringify(safeHierarchy);
+
+      // Optional short debug preview for jsonb fields (do not spam full JSON)
+      console.log(
+        "[Directory Cache] jsonb preview:",
+        "kpis type=", typeof safeKpis,
+        "hierarchy type=", typeof safeHierarchy
+      );
+
       await withRetry(async () => {
         return await client.query(
           `
@@ -86,11 +99,11 @@ export async function saveDirectorySnapshot(dataArray) {
             data.primary_hr_contact ?? null,
             data.approval_policy ?? null,
             data.decision_maker ?? null,
-            safeKpis, // jsonb (array or object or null)
+            jsonKpis, // jsonb: pre-stringified JSON or null
             data.max_test_attempts ?? null,
             data.website_url ?? null,
             data.verification_status ?? null,
-            safeHierarchy, // jsonb (array or object or null)
+            jsonHierarchy, // jsonb: pre-stringified JSON or null
             now
           ]
         );
