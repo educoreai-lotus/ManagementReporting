@@ -228,6 +228,16 @@ const DashboardContainer = () => {
         status={refreshStatus}
         onRetry={handleRetryFailed}
       />
+
+      {/* Chatbot container - RAG chatbot will render here */}
+      <div 
+        id="edu-bot-dashboard-container"
+        style={{
+          position: 'relative',
+          minHeight: '60px',
+          pointerEvents: 'auto'
+        }}
+      />
     </div>
   );
 };

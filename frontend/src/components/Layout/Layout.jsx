@@ -6,19 +6,14 @@ const Layout = ({ children }) => {
   const { theme } = useTheme();
   const botInitialized = useRef(false);
 
-  // Create chatbot container in document.body with fixed positioning for floating widget visibility
+  // Create fallback container for chatbot (RAG bot may look for edu-bot-container)
   useEffect(() => {
-    let container = document.getElementById('edu-bot-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'edu-bot-container';
-      // Ensure container is visible and not clipped by layout overflow
-      container.style.position = 'fixed';
-      container.style.bottom = '16px';
-      container.style.right = '16px';
-      container.style.zIndex = '2147483647';
-      container.style.pointerEvents = 'auto';
-      document.body.appendChild(container);
+    let fallbackContainer = document.getElementById('edu-bot-container');
+    if (!fallbackContainer) {
+      fallbackContainer = document.createElement('div');
+      fallbackContainer.id = 'edu-bot-container';
+      fallbackContainer.style.display = 'none'; // Hidden, will move content to Dashboard
+      document.body.appendChild(fallbackContainer);
     }
   }, []);
 
@@ -45,15 +40,25 @@ const Layout = ({ children }) => {
         return;
       }
 
-      const container = document.getElementById('edu-bot-container');
+      // Check for Dashboard container (chatbot only renders in Dashboard)
+      const dashboardContainer = document.getElementById('edu-bot-dashboard-container');
+      const fallbackContainer = document.getElementById('edu-bot-container');
       const hasInitFunction = typeof window.initializeEducoreBot === 'function';
+
+      // Only initialize if Dashboard container exists (chatbot only in Dashboard)
+      if (!dashboardContainer) {
+        if (attemptCount < maxAttempts) {
+          setTimeout(tryInitialize, retryDelay);
+        }
+        return;
+      }
 
       // Token is optional - use fallback if missing
       // RAG bot expects token format but can work with fallback for development
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || 'DEV_BOT_TOKEN';
 
-      // Wait for container and script function - ensure app is fully ready
-      if (container && hasInitFunction) {
+      // Wait for Dashboard container and script function - ensure app is fully ready
+      if (dashboardContainer && hasInitFunction) {
 
         // Extract userId from JWT if possible, otherwise use fallback
         // RAG expects valid userId format - extract from token or use fallback
@@ -71,9 +76,7 @@ const Layout = ({ children }) => {
         }
 
         // Initialize chatbot exactly once with official RAG parameters
-        // Container selector: RAG bot expects container with id 'edu-bot-container' (auto-detected)
-        // Microservice: HR_MANAGEMENT_REPORTING is valid per approved list
-        // TODO: Confirm with RAG team if container selector needs explicit parameter
+        // Chatbot will render into Dashboard container
         if (!botInitialized.current) {
           try {
             const initResult = window.initializeEducoreBot({
@@ -83,8 +86,32 @@ const Layout = ({ children }) => {
               tenantId: 'default'
             });
             
-            // Verify initialization result (if returned) - bot should consider itself UI-enabled
-            // RAG bot should render UI naturally based on its internal logic
+            // Move chatbot DOM elements to Dashboard container after initialization
+            // RAG bot may inject elements into fallback container or document.body, move them to Dashboard
+            const moveToDashboard = () => {
+              const dashboardContainer = document.getElementById('edu-bot-dashboard-container');
+              const fallbackContainer = document.getElementById('edu-bot-container');
+              
+              if (dashboardContainer) {
+                // Move all children from fallback to Dashboard container if they exist
+                if (fallbackContainer) {
+                  while (fallbackContainer.firstChild) {
+                    dashboardContainer.appendChild(fallbackContainer.firstChild);
+                  }
+                }
+                
+                // Also find and move any chatbot elements that may be elsewhere in the DOM
+                const botElements = document.querySelectorAll('iframe[src*="rag-production-3a4c"], [id*="edu-bot"]:not(#edu-bot-container):not(#edu-bot-dashboard-container), [id*="chat"], [id*="widget"], [id*="bot"], [class*="edu-bot"], [class*="FloatingChatWidget"], [class*="chat"], [class*="widget"], [class*="bot"]');
+                botElements.forEach(el => {
+                  if (el !== dashboardContainer && el !== fallbackContainer && !dashboardContainer.contains(el) && el.parentNode && el.parentNode !== dashboardContainer) {
+                    dashboardContainer.appendChild(el);
+                  }
+                });
+              }
+            };
+            
+            setTimeout(moveToDashboard, 500);
+            
             botInitialized.current = true;
             return; // Stop retrying once initialized
           } catch (error) {
@@ -113,142 +140,9 @@ const Layout = ({ children }) => {
       }
     };
 
-      // Start retry mechanism
+    // Start retry mechanism
     tryInitialize();
   }, []); // Empty dependency array - initialize once on mount
-
-  // TODO: Remove this temporary DOM detection indicator after diagnosis
-  // Temporary indicator to detect if chatbot injects UI elements into DOM
-  useEffect(() => {
-    let pollCount = 0;
-    const maxPolls = 20;
-    const pollDelay = 250;
-
-    const checkBotDOM = () => {
-      pollCount++;
-
-      // Detection logic: check for chatbot DOM elements
-      let botFound = false;
-
-      // A) Check if container has children
-      const container = document.getElementById('edu-bot-container');
-      if (container && container.children.length > 0) {
-        botFound = true;
-      }
-
-      // B) Check for iframe with RAG domain
-      if (!botFound) {
-        const iframes = document.querySelectorAll('iframe');
-        for (const iframe of iframes) {
-          if (iframe.src && iframe.src.includes('rag-production-3a4c.up.railway.app')) {
-            botFound = true;
-            break;
-          }
-        }
-      }
-
-      // C) Check for elements with bot-related id/class
-      if (!botFound) {
-        const botKeywords = ['edu-bot', 'chat', 'widget', 'bot'];
-        const allElements = document.querySelectorAll('*');
-        for (const el of allElements) {
-          const id = el.id?.toLowerCase() || '';
-          const className = el.className?.toLowerCase() || '';
-          if (botKeywords.some(keyword => id.includes(keyword) || className.includes(keyword))) {
-            botFound = true;
-            break;
-          }
-        }
-      }
-
-      // Create or update indicator
-      let indicator = document.getElementById('bot-dom-indicator');
-      if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'bot-dom-indicator';
-        indicator.style.position = 'fixed';
-        indicator.style.bottom = '16px';
-        indicator.style.left = '16px';
-        indicator.style.padding = '4px 8px';
-        indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        indicator.style.color = 'white';
-        indicator.style.fontSize = '11px';
-        indicator.style.fontFamily = 'monospace';
-        indicator.style.borderRadius = '4px';
-        indicator.style.zIndex = '2147483646';
-        indicator.style.pointerEvents = 'none';
-        document.body.appendChild(indicator);
-      }
-
-      indicator.textContent = botFound ? 'BOT DOM: FOUND' : 'BOT DOM: NOT FOUND';
-
-      // Continue polling if not found and haven't exceeded max polls
-      if (!botFound && pollCount < maxPolls) {
-        setTimeout(checkBotDOM, pollDelay);
-      }
-    };
-
-    // Start polling after a short delay to allow initialization
-    setTimeout(checkBotDOM, 500);
-  }, []); // Empty dependency array - run once on mount
-
-  // Ensure chatbot UI is visible when injected but hidden by layout stacking
-  // Apply CSS override to chatbot elements to fix visibility issues
-  useEffect(() => {
-    let checkCount = 0;
-    const maxChecks = 30;
-    const checkDelay = 300;
-
-    const applyVisibilityFix = () => {
-      checkCount++;
-
-      // Find chatbot-related elements
-      const botSelectors = [
-        '#edu-bot-container',
-        'iframe[src*="rag-production-3a4c.up.railway.app"]',
-        '[id*="edu-bot"]',
-        '[id*="chat"]',
-        '[id*="widget"]',
-        '[id*="bot"]',
-        '[class*="edu-bot"]',
-        '[class*="FloatingChatWidget"]',
-        '[class*="chat"]',
-        '[class*="widget"]',
-        '[class*="bot"]'
-      ];
-
-      botSelectors.forEach(selector => {
-        try {
-          const elements = document.querySelectorAll(selector);
-          elements.forEach(el => {
-            // Apply visibility fixes only to chatbot elements
-            if (el && el !== document.getElementById('bot-dom-indicator')) {
-              el.style.display = 'block';
-              el.style.visibility = 'visible';
-              el.style.opacity = '1';
-              el.style.pointerEvents = 'auto';
-              
-              // Ensure fixed positioning and high z-index for floating widgets
-              const computedStyle = window.getComputedStyle(el);
-              if (computedStyle.position === 'fixed' || computedStyle.position === 'absolute') {
-                el.style.zIndex = '2147483647';
-              }
-            }
-          });
-        } catch (e) {
-          // Ignore selector errors
-        }
-      });
-
-      // Continue checking if chatbot elements might appear later
-      if (checkCount < maxChecks) {
-        setTimeout(applyVisibilityFix, checkDelay);
-      }
-    };
-
-    // Start applying fixes after initialization delay
-    setTimeout(applyVisibilityFix, 1000);
-  }, []); // Empty dependency array - run once on mount
 
   return (
     <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-800 ${theme === 'dark' ? 'dark' : ''}`}>
