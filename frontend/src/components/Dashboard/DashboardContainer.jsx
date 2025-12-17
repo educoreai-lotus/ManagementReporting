@@ -10,7 +10,7 @@ import ErrorMessage from '../Common/ErrorMessage';
 import EmptyState from '../Common/EmptyState';
 import NotificationBanner from '../Common/NotificationBanner';
 import RefreshStatusModal from './RefreshStatusModal';
-import { Menu } from 'lucide-react';
+import { Menu, MessageCircle, X } from 'lucide-react';
 
 const DashboardContainer = () => {
   const navigate = useNavigate();
@@ -27,6 +27,7 @@ const DashboardContainer = () => {
   } = useDashboardData();
   const [boxOpen, setBoxOpen] = useState(false);
   const [isStatusModalOpen, setStatusModalOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false); // Chatbot panel open/close state
   const [allCharts, setAllCharts] = useState(null); // All charts (priority + BOX) for rendering
 
   const failedServicesMap = useMemo(() => {
@@ -229,15 +230,60 @@ const DashboardContainer = () => {
         onRetry={handleRetryFailed}
       />
 
-      {/* Chatbot container - RAG chatbot will render here */}
-      <div 
-        id="edu-bot-dashboard-container"
+      {/* Floating Chat Bubble Button - Fixed position, always visible */}
+      <button
+        onClick={() => setChatOpen(!chatOpen)}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        aria-label={chatOpen ? 'Close chatbot' : 'Open chatbot'}
         style={{
-          position: 'relative',
-          minHeight: '60px',
-          pointerEvents: 'auto'
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
         }}
-      />
+      >
+        {chatOpen ? (
+          <X className="w-6 h-6" />
+        ) : (
+          <MessageCircle className="w-6 h-6" />
+        )}
+      </button>
+
+      {/* Floating Chatbot Panel - Toggleable overlay */}
+      {/* Container always exists in DOM (for chatbot initialization), visibility controlled by CSS */}
+      <div
+        className={`fixed bottom-24 right-6 z-40 bg-white dark:bg-neutral-800 rounded-lg shadow-2xl border border-neutral-200 dark:border-neutral-700 transition-all duration-300 ease-in-out ${
+          chatOpen ? 'opacity-100 translate-y-0 pointer-events-auto visible' : 'opacity-0 translate-y-4 pointer-events-none invisible'
+        }`}
+        style={{
+          width: '400px',
+          maxWidth: 'calc(100vw - 3rem)',
+          maxHeight: '600px',
+          minHeight: '400px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Panel Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
+          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">AI Assistant</h3>
+          <button
+            onClick={() => setChatOpen(false)}
+            className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 transition-colors"
+            aria-label="Close chatbot"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Chatbot Container - Existing chatbot renders here */}
+        <div
+          id="edu-bot-dashboard-container"
+          className="flex-1 overflow-auto"
+          style={{
+            minHeight: '350px',
+            pointerEvents: 'auto'
+          }}
+        />
+      </div>
     </div>
   );
 };
