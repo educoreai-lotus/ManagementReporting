@@ -86,6 +86,12 @@ const Layout = ({ children }) => {
               tenantId: 'default'
             });
             
+            // Store chatbot API reference globally if returned (for programmatic open/close)
+            // Common patterns: initResult may contain { open, close, toggle } methods
+            if (initResult && typeof initResult === 'object') {
+              window.educoreBotAPI = initResult;
+            }
+            
             // CRITICAL: Do NOT move chatbot DOM elements - React controls them
             // Chatbot will render into dashboardContainer naturally
             // Visibility will be controlled via CSS only (no DOM manipulation)

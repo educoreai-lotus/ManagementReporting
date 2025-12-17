@@ -30,6 +30,35 @@ const DashboardContainer = () => {
   const [chatOpen, setChatOpen] = useState(false); // Chatbot panel open/close state
   const [allCharts, setAllCharts] = useState(null); // All charts (priority + BOX) for rendering
 
+  // Handle chatbot open/close via its official API (if exposed)
+  const handleChatToggle = () => {
+    const newChatOpen = !chatOpen;
+    setChatOpen(newChatOpen);
+
+    // Attempt to call chatbot's official open/close API if it exists
+    // Common API patterns: openEducoreBot, toggleEducoreBot, educoreBotAPI.open()
+    if (newChatOpen) {
+      // Try to open chatbot via its internal API
+      if (typeof window.openEducoreBot === 'function') {
+        window.openEducoreBot();
+      } else if (typeof window.toggleEducoreBot === 'function') {
+        window.toggleEducoreBot(true);
+      } else if (window.educoreBotAPI && typeof window.educoreBotAPI.open === 'function') {
+        window.educoreBotAPI.open();
+      }
+      // If no API exists, CSS visibility is the only available toggle
+    } else {
+      // Try to close chatbot via its internal API
+      if (typeof window.closeEducoreBot === 'function') {
+        window.closeEducoreBot();
+      } else if (typeof window.toggleEducoreBot === 'function') {
+        window.toggleEducoreBot(false);
+      } else if (window.educoreBotAPI && typeof window.educoreBotAPI.close === 'function') {
+        window.educoreBotAPI.close();
+      }
+    }
+  };
+
   const failedServicesMap = useMemo(() => {
     if (!refreshStatus?.failed) return {};
     return refreshStatus.failed.reduce((acc, item) => {
@@ -232,7 +261,7 @@ const DashboardContainer = () => {
 
       {/* Floating Chat Bubble Button - Fixed position, always visible */}
       <button
-        onClick={() => setChatOpen(!chatOpen)}
+        onClick={handleChatToggle}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         aria-label={chatOpen ? 'Close chatbot' : 'Open chatbot'}
         style={{
