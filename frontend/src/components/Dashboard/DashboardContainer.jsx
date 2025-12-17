@@ -230,7 +230,7 @@ const DashboardContainer = () => {
       />
 
       {/* RAG Chatbot Container - Renders its own floating UI */}
-      <div id="edu-bot-dashboard-container" />
+      <div id="edu-bot-container" />
     </div>
   );
 };

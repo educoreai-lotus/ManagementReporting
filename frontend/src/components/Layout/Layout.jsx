@@ -6,17 +6,6 @@ const Layout = ({ children }) => {
   const { theme } = useTheme();
   const botInitialized = useRef(false);
 
-  // Create fallback container for chatbot (RAG bot may look for edu-bot-container)
-  useEffect(() => {
-    let fallbackContainer = document.getElementById('edu-bot-container');
-    if (!fallbackContainer) {
-      fallbackContainer = document.createElement('div');
-      fallbackContainer.id = 'edu-bot-container';
-      fallbackContainer.style.display = 'none'; // Hidden, will move content to Dashboard
-      document.body.appendChild(fallbackContainer);
-    }
-  }, []);
-
   useEffect(() => {
     // Prevent multiple initializations
     if (botInitialized.current) {
@@ -40,13 +29,11 @@ const Layout = ({ children }) => {
         return;
       }
 
-      // Check for Dashboard container (chatbot only renders in Dashboard)
-      const dashboardContainer = document.getElementById('edu-bot-dashboard-container');
-      const fallbackContainer = document.getElementById('edu-bot-container');
+      const container = document.getElementById('edu-bot-container');
       const hasInitFunction = typeof window.initializeEducoreBot === 'function';
 
-      // Only initialize if Dashboard container exists (chatbot only in Dashboard)
-      if (!dashboardContainer) {
+      // Only initialize if container exists (chatbot only in Dashboard)
+      if (!container) {
         if (attemptCount < maxAttempts) {
           setTimeout(tryInitialize, retryDelay);
         }
@@ -57,8 +44,8 @@ const Layout = ({ children }) => {
       // RAG bot expects token format but can work with fallback for development
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || 'DEV_BOT_TOKEN';
 
-      // Wait for Dashboard container and script function - ensure app is fully ready
-      if (dashboardContainer && hasInitFunction) {
+      // Wait for container and script function - ensure app is fully ready
+      if (container && hasInitFunction) {
 
         // Extract userId from JWT if possible, otherwise use fallback
         // RAG expects valid userId format - extract from token or use fallback
