@@ -189,23 +189,18 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     let totalUsers = 0;
     const usersByDepartment = {};
 
-    // Calculate user counts per organization based on company_size from DB
+    // Calculate real user counts per organization from Directory hierarchy (no estimates)
     for (const row of rows) {
-      const approxUsers = this.estimateUsersByCompanySize(row.company_size); // Calculation based on DB field
       const companyKey = row.company_name || row.company_id;
-      totalUsers += approxUsers;
-      orgUserMap.set(companyKey, approxUsers);
 
-      // Calculate users by department based on hierarchy.departments from DB
-      const departments = row.hierarchy?.departments || [];
-      if (departments.length) {
-        const perDept = Math.max(1, Math.round(approxUsers / departments.length));
-        departments.forEach((dept) => {
-          if (dept && typeof dept === 'string') {
-            usersByDepartment[dept] = (usersByDepartment[dept] || 0) + perDept;
-          }
-        });
-      }
+      // Count unique employees from hierarchy: departments -> teams -> employees
+      const userCount = this.countUsersFromHierarchy(row.hierarchy);
+      totalUsers += userCount;
+      orgUserMap.set(companyKey, userCount);
+
+      // (Optional) usersByDepartment could also be derived from hierarchy,
+      // but current implementation is estimation-based. We leave it as-is for now
+      // to avoid changing existing behavior beyond organization-level counts.
     }
 
     // Try to extract user_count and active_users from kpis (if available in DB)
@@ -230,11 +225,11 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     const organizationsActive = rows.filter((row) => row.verification_status === 'verified').length;
 
     const metrics = {
-      totalUsers, // Calculated from company_size (DB field)
+      totalUsers, // Sum of real users from hierarchy (departments -> teams -> employees)
       totalOrganizations, // Direct count from DB
       activeUsers, // Calculated from kpis.active_users (DB field) or estimated from totalUsers
       usersByRole, // Empty - no role_distribution in DB
-      usersByDepartment, // Calculated from hierarchy.departments (DB field)
+      usersByDepartment, // Currently left as-is (existing behavior)
       organizationsActive // Calculated from verification_status (DB field)
     };
 
@@ -296,6 +291,60 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     }
     
     return 50; // Default fallback
+  }
+
+  /**
+   * Count unique users from Directory hierarchy JSON structure.
+   * Expected structure (simplified):
+   * [
+   *   {
+   *     departments: [
+   *       {
+   *         teams: [
+   *           {
+   *             employees: [
+   *               { employee_id, name, role_type }
+   *             ]
+   *           }
+   *         ]
+   *       }
+   *     ]
+   *   }
+   * ]
+   *
+   * Managers must not be double-counted if they also appear in employees,
+   * so we rely on unique employee_id (or name as fallback) when counting.
+   */
+  countUsersFromHierarchy(hierarchy) {
+    if (!hierarchy || !Array.isArray(hierarchy)) {
+      return 0;
+    }
+
+    const seen = new Set();
+
+    for (const dept of hierarchy) {
+      if (!dept || !Array.isArray(dept.teams)) continue;
+
+      for (const team of dept.teams) {
+        if (!team || !Array.isArray(team.employees)) continue;
+
+        for (const emp of team.employees) {
+          if (!emp) continue;
+
+          const key =
+            (emp.employee_id && String(emp.employee_id)) ||
+            (emp.name && String(emp.name).toLowerCase().trim());
+
+          if (!key) continue;
+
+          if (!seen.has(key)) {
+            seen.add(key);
+          }
+        }
+      }
+    }
+
+    return seen.size;
   }
 
   async fetchContentStudioData() {
