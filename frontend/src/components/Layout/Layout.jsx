@@ -113,9 +113,84 @@ const Layout = ({ children }) => {
       }
     };
 
-    // Start retry mechanism
+      // Start retry mechanism
     tryInitialize();
   }, []); // Empty dependency array - initialize once on mount
+
+  // TODO: Remove this temporary DOM detection indicator after diagnosis
+  // Temporary indicator to detect if chatbot injects UI elements into DOM
+  useEffect(() => {
+    let pollCount = 0;
+    const maxPolls = 20;
+    const pollDelay = 250;
+
+    const checkBotDOM = () => {
+      pollCount++;
+
+      // Detection logic: check for chatbot DOM elements
+      let botFound = false;
+
+      // A) Check if container has children
+      const container = document.getElementById('edu-bot-container');
+      if (container && container.children.length > 0) {
+        botFound = true;
+      }
+
+      // B) Check for iframe with RAG domain
+      if (!botFound) {
+        const iframes = document.querySelectorAll('iframe');
+        for (const iframe of iframes) {
+          if (iframe.src && iframe.src.includes('rag-production-3a4c.up.railway.app')) {
+            botFound = true;
+            break;
+          }
+        }
+      }
+
+      // C) Check for elements with bot-related id/class
+      if (!botFound) {
+        const botKeywords = ['edu-bot', 'chat', 'widget', 'bot'];
+        const allElements = document.querySelectorAll('*');
+        for (const el of allElements) {
+          const id = el.id?.toLowerCase() || '';
+          const className = el.className?.toLowerCase() || '';
+          if (botKeywords.some(keyword => id.includes(keyword) || className.includes(keyword))) {
+            botFound = true;
+            break;
+          }
+        }
+      }
+
+      // Create or update indicator
+      let indicator = document.getElementById('bot-dom-indicator');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'bot-dom-indicator';
+        indicator.style.position = 'fixed';
+        indicator.style.bottom = '16px';
+        indicator.style.left = '16px';
+        indicator.style.padding = '4px 8px';
+        indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        indicator.style.color = 'white';
+        indicator.style.fontSize = '11px';
+        indicator.style.fontFamily = 'monospace';
+        indicator.style.borderRadius = '4px';
+        indicator.style.zIndex = '2147483646';
+        indicator.style.pointerEvents = 'none';
+        document.body.appendChild(indicator);
+      }
+
+      indicator.textContent = botFound ? 'BOT DOM: FOUND' : 'BOT DOM: NOT FOUND';
+
+      // Continue polling if not found and haven't exceeded max polls
+      if (!botFound && pollCount < maxPolls) {
+        setTimeout(checkBotDOM, pollDelay);
+      }
+    };
+
+    // Start polling after a short delay to allow initialization
+    setTimeout(checkBotDOM, 500);
+  }, []); // Empty dependency array - run once on mount
 
   return (
     <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-800 ${theme === 'dark' ? 'dark' : ''}`}>
