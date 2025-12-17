@@ -192,6 +192,64 @@ const Layout = ({ children }) => {
     setTimeout(checkBotDOM, 500);
   }, []); // Empty dependency array - run once on mount
 
+  // Ensure chatbot UI is visible when injected but hidden by layout stacking
+  // Apply CSS override to chatbot elements to fix visibility issues
+  useEffect(() => {
+    let checkCount = 0;
+    const maxChecks = 30;
+    const checkDelay = 300;
+
+    const applyVisibilityFix = () => {
+      checkCount++;
+
+      // Find chatbot-related elements
+      const botSelectors = [
+        '#edu-bot-container',
+        'iframe[src*="rag-production-3a4c.up.railway.app"]',
+        '[id*="edu-bot"]',
+        '[id*="chat"]',
+        '[id*="widget"]',
+        '[id*="bot"]',
+        '[class*="edu-bot"]',
+        '[class*="FloatingChatWidget"]',
+        '[class*="chat"]',
+        '[class*="widget"]',
+        '[class*="bot"]'
+      ];
+
+      botSelectors.forEach(selector => {
+        try {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach(el => {
+            // Apply visibility fixes only to chatbot elements
+            if (el && el !== document.getElementById('bot-dom-indicator')) {
+              el.style.display = 'block';
+              el.style.visibility = 'visible';
+              el.style.opacity = '1';
+              el.style.pointerEvents = 'auto';
+              
+              // Ensure fixed positioning and high z-index for floating widgets
+              const computedStyle = window.getComputedStyle(el);
+              if (computedStyle.position === 'fixed' || computedStyle.position === 'absolute') {
+                el.style.zIndex = '2147483647';
+              }
+            }
+          });
+        } catch (e) {
+          // Ignore selector errors
+        }
+      });
+
+      // Continue checking if chatbot elements might appear later
+      if (checkCount < maxChecks) {
+        setTimeout(applyVisibilityFix, checkDelay);
+      }
+    };
+
+    // Start applying fixes after initialization delay
+    setTimeout(applyVisibilityFix, 1000);
+  }, []); // Empty dependency array - run once on mount
+
   return (
     <div className={`min-h-screen bg-neutral-50 dark:bg-neutral-800 ${theme === 'dark' ? 'dark' : ''}`}>
       <Header />
