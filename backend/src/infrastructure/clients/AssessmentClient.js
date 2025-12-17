@@ -77,16 +77,29 @@ export async function fetchAssessmentDataFromService() {
     // 4. Normalize response to handle all supported formats:
     // Format A (expected): [{...}, {...}] - direct array
     // Format B (legacy): { success: true, data: { "0": {...}, "1": {...} } } - object with numeric keys
-    // Format C (Coordinator wrapped): { response: { answer: [...] } } - Coordinator wrapped response
+    // Format C1: { response: { answer: [...] } } - wrapped with "answer" array
+    // Format C2: { response: [...] } - Coordinator wrapped with direct response array (including empty [])
     let filledResponse;
     if (Array.isArray(parsed)) {
       // Format A: already an array, use it directly
       filledResponse = parsed;
-    } else if (parsed && typeof parsed === "object" && parsed.response && 
-               typeof parsed.response === "object" && parsed.response.answer && 
-               Array.isArray(parsed.response.answer)) {
-      // Format C: Coordinator wrapped response with answer array
+    } else if (
+      parsed &&
+      typeof parsed === "object" &&
+      parsed.response &&
+      typeof parsed.response === "object" &&
+      parsed.response.answer &&
+      Array.isArray(parsed.response.answer)
+    ) {
+      // Format C1: Coordinator wrapped response with answer array
       filledResponse = parsed.response.answer;
+    } else if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.response)
+    ) {
+      // Format C2: Coordinator wrapped response with direct response array (may be empty)
+      filledResponse = parsed.response;
     } else if (parsed && typeof parsed === "object" && parsed.data && typeof parsed.data === "object") {
       // Format B: convert object with numeric keys to array
       filledResponse = Object.values(parsed.data);
