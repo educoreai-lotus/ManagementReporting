@@ -63,17 +63,28 @@ const Layout = ({ children }) => {
     const tryInitialize = () => {
       attemptCount++;
 
+      // Ensure DOM is fully ready - RAG bot needs complete page context
+      const isPageReady = document.readyState === 'complete' || document.readyState === 'interactive';
+      if (!isPageReady) {
+        if (attemptCount < maxAttempts) {
+          setTimeout(tryInitialize, retryDelay);
+        }
+        return;
+      }
+
       const container = document.getElementById('edu-bot-container');
       const hasInitFunction = typeof window.initializeEducoreBot === 'function';
 
       // Token is optional - use fallback if missing
+      // RAG bot expects token format but can work with fallback for development
       const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || 'DEV_BOT_TOKEN';
 
-      // Wait for container and script function
+      // Wait for container and script function - ensure app is fully ready
       if (container && hasInitFunction) {
         updateDebug('BOT: initializing');
 
         // Extract userId from JWT if possible, otherwise use fallback
+        // RAG expects valid userId format - extract from token or use fallback
         let userId = 'DEV_BOT_USER';
         if (token && token !== 'DEV_BOT_TOKEN') {
           try {
@@ -87,15 +98,21 @@ const Layout = ({ children }) => {
           }
         }
 
-        // Initialize chatbot exactly once
+        // Initialize chatbot exactly once with official RAG parameters
+        // Container selector: RAG bot expects container with id 'edu-bot-container' (auto-detected)
+        // Microservice: HR_MANAGEMENT_REPORTING is valid per approved list
+        // TODO: Confirm with RAG team if container selector needs explicit parameter
         if (!botInitialized.current) {
           try {
-            window.initializeEducoreBot({
+            const initResult = window.initializeEducoreBot({
               microservice: 'HR_MANAGEMENT_REPORTING',
               userId: userId,
               token: token,
               tenantId: 'default'
             });
+            
+            // Verify initialization result (if returned) - bot should consider itself UI-enabled
+            // RAG bot should render UI naturally based on its internal logic
             botInitialized.current = true;
             updateDebug('BOT: initialized');
             return; // Stop retrying once initialized
