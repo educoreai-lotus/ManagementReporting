@@ -7,85 +7,77 @@ const Layout = ({ children }) => {
   const botInitialized = useRef(false);
 
   useEffect(() => {
-    // Initialize RAG Chatbot only after authentication
-    const initializeBot = () => {
+    // Prevent multiple initializations
+    if (botInitialized.current) {
+      return;
+    }
+
+    // Retry mechanism to handle timing issues: waits for token, container, and script to be ready
+    let attemptCount = 0;
+    const maxAttempts = 20;
+    const retryDelay = 250; // 250ms between attempts
+
+    const tryInitialize = () => {
+      attemptCount++;
+
+      // Check all required conditions
       const token = localStorage.getItem('authToken');
-      
-      // token MUST exist
-      if (!token) {
-        console.warn('[Chatbot] Token not found, skipping bot initialization');
-        return;
-      }
+      const container = document.getElementById('edu-bot-container');
+      const hasInitFunction = typeof window.initializeEducoreBot === 'function';
 
-      // Extract userId from JWT token (if possible)
-      // JWT format: header.payload.signature - we need the payload
-      let userId = 'default-user';
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          userId = payload.userId || payload.sub || payload.id || token; // Fallback to token if no userId in payload
-        } else {
-          userId = token; // Not a JWT, use token as userId
+      // If all conditions are met, proceed with initialization
+      if (token && container && hasInitFunction) {
+        // Extract userId from JWT token (if possible)
+        let userId = 'default-user';
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            userId = payload.userId || payload.sub || payload.id || token;
+          } else {
+            userId = token;
+          }
+        } catch (error) {
+          userId = token;
         }
-      } catch (error) {
-        // Token parsing failed, use token as userId
-        userId = token;
+
+        // Initialize chatbot exactly once
+        if (!botInitialized.current) {
+          try {
+            window.initializeEducoreBot({
+              microservice: 'HR_MANAGEMENT_REPORTING',
+              userId: userId,
+              token: token,
+              tenantId: 'default'
+            });
+            botInitialized.current = true;
+          } catch (error) {
+            // Silent error handling - retry will continue if initialization fails
+          }
+        }
+        return; // Stop retrying once initialized
       }
 
-      // Prevent multiple initializations
-      if (botInitialized.current) {
-        return;
+      // If conditions not met and haven't exceeded max attempts, retry
+      if (attemptCount < maxAttempts) {
+        setTimeout(tryInitialize, retryDelay);
       }
 
-      // Load bot script if not already loaded
-      if (!document.getElementById('edu-bot-script')) {
+      // Load bot script if not already loaded (only once)
+      if (!document.getElementById('edu-bot-script') && !botInitialized.current) {
         const script = document.createElement('script');
         script.id = 'edu-bot-script';
         script.src = 'https://rag-production-3a4c.up.railway.app/embed/bot.js';
         script.async = true;
-        script.onload = () => {
-          // Initialize bot after script loads
-          if (window.initializeEducoreBot) {
-            try {
-              window.initializeEducoreBot({
-                microservice: 'HR_MANAGEMENT_REPORTING',
-                userId: userId,
-                token: token,
-                tenantId: 'default' // Optional, default value
-              });
-              botInitialized.current = true;
-              console.log('[Chatbot] Bot initialized successfully');
-            } catch (error) {
-              console.error('[Chatbot] Failed to initialize bot:', error);
-            }
-          } else {
-            console.error('[Chatbot] initializeEducoreBot function not found');
-          }
-        };
         script.onerror = () => {
-          console.error('[Chatbot] Failed to load bot script');
+          // Silent error handling - retry will continue
         };
         document.body.appendChild(script);
-      } else if (window.initializeEducoreBot && !botInitialized.current) {
-        // Script already loaded, just initialize
-        try {
-          window.initializeEducoreBot({
-            microservice: 'HR_MANAGEMENT_REPORTING',
-            userId: userId,
-            token: token,
-            tenantId: 'default'
-          });
-          botInitialized.current = true;
-          console.log('[Chatbot] Bot initialized successfully (script already loaded)');
-        } catch (error) {
-          console.error('[Chatbot] Failed to initialize bot:', error);
-        }
       }
     };
 
-    // Initialize bot when component mounts and token is available
-    initializeBot();
+    // Start retry mechanism
+    tryInitialize();
   }, []); // Empty dependency array - initialize once on mount
 
   return (
