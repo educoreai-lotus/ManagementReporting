@@ -6,12 +6,41 @@ const Layout = ({ children }) => {
   const { theme } = useTheme();
   const botInitialized = useRef(false);
 
-  // Create chatbot container in document.body to avoid layout overflow clipping
+  // Create chatbot container in document.body with fixed positioning for floating widget visibility
   useEffect(() => {
-    if (!document.getElementById('edu-bot-container')) {
-      const container = document.createElement('div');
+    let container = document.getElementById('edu-bot-container');
+    if (!container) {
+      container = document.createElement('div');
       container.id = 'edu-bot-container';
+      // Ensure container is visible and not clipped by layout overflow
+      container.style.position = 'fixed';
+      container.style.bottom = '16px';
+      container.style.right = '16px';
+      container.style.zIndex = '2147483647';
+      container.style.pointerEvents = 'auto';
       document.body.appendChild(container);
+    }
+  }, []);
+
+  // Create debug badge for initialization status (temporary, easy to remove)
+  useEffect(() => {
+    let debugBadge = document.getElementById('edu-bot-debug');
+    if (!debugBadge) {
+      debugBadge = document.createElement('div');
+      debugBadge.id = 'edu-bot-debug';
+      debugBadge.style.position = 'fixed';
+      debugBadge.style.top = '16px';
+      debugBadge.style.right = '16px';
+      debugBadge.style.padding = '4px 8px';
+      debugBadge.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      debugBadge.style.color = 'white';
+      debugBadge.style.fontSize = '11px';
+      debugBadge.style.fontFamily = 'monospace';
+      debugBadge.style.borderRadius = '4px';
+      debugBadge.style.zIndex = '2147483647';
+      debugBadge.style.pointerEvents = 'none';
+      debugBadge.textContent = 'BOT: container ok';
+      document.body.appendChild(debugBadge);
     }
   }, []);
 
@@ -21,33 +50,41 @@ const Layout = ({ children }) => {
       return;
     }
 
-    // Retry mechanism to handle timing issues: waits for token, container, and script to be ready
+    const updateDebug = (text) => {
+      const badge = document.getElementById('edu-bot-debug');
+      if (badge) badge.textContent = text;
+    };
+
+    // Retry mechanism: token-optional initialization (treat token gating as TRUE by default)
     let attemptCount = 0;
-    const maxAttempts = 20;
-    const retryDelay = 250; // 250ms between attempts
+    const maxAttempts = 40;
+    const retryDelay = 250;
 
     const tryInitialize = () => {
       attemptCount++;
 
-      // Check all required conditions
-      const token = localStorage.getItem('authToken');
       const container = document.getElementById('edu-bot-container');
       const hasInitFunction = typeof window.initializeEducoreBot === 'function';
 
-      // If all conditions are met, proceed with initialization
-      if (token && container && hasInitFunction) {
-        // Extract userId from JWT token (if possible)
-        let userId = 'default-user';
-        try {
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            userId = payload.userId || payload.sub || payload.id || token;
-          } else {
-            userId = token;
+      // Token is optional - use fallback if missing
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || 'DEV_BOT_TOKEN';
+
+      // Wait for container and script function
+      if (container && hasInitFunction) {
+        updateDebug('BOT: initializing');
+
+        // Extract userId from JWT if possible, otherwise use fallback
+        let userId = 'DEV_BOT_USER';
+        if (token && token !== 'DEV_BOT_TOKEN') {
+          try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              userId = payload.userId || payload.sub || payload.id || 'DEV_BOT_USER';
+            }
+          } catch (error) {
+            userId = 'DEV_BOT_USER';
           }
-        } catch (error) {
-          userId = token;
         }
 
         // Initialize chatbot exactly once
@@ -60,16 +97,17 @@ const Layout = ({ children }) => {
               tenantId: 'default'
             });
             botInitialized.current = true;
+            updateDebug('BOT: initialized');
+            return; // Stop retrying once initialized
           } catch (error) {
-            // Silent error handling - retry will continue if initialization fails
+            updateDebug('BOT: init failed');
+            // Continue retrying if initialization fails
           }
+        } else {
+          return; // Already initialized
         }
-        return; // Stop retrying once initialized
-      }
-
-      // If conditions not met and haven't exceeded max attempts, retry
-      if (attemptCount < maxAttempts) {
-        setTimeout(tryInitialize, retryDelay);
+      } else if (container && !hasInitFunction) {
+        updateDebug('BOT: waiting for script');
       }
 
       // Load bot script if not already loaded (only once)
@@ -82,6 +120,11 @@ const Layout = ({ children }) => {
           // Silent error handling - retry will continue
         };
         document.body.appendChild(script);
+      }
+
+      // If conditions not met and haven't exceeded max attempts, retry
+      if (attemptCount < maxAttempts && !botInitialized.current) {
+        setTimeout(tryInitialize, retryDelay);
       }
     };
 
