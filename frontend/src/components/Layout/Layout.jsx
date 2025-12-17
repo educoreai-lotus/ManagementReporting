@@ -86,31 +86,9 @@ const Layout = ({ children }) => {
               tenantId: 'default'
             });
             
-            // Move chatbot DOM elements to Dashboard container after initialization
-            // RAG bot may inject elements into fallback container or document.body, move them to Dashboard
-            const moveToDashboard = () => {
-              const dashboardContainer = document.getElementById('edu-bot-dashboard-container');
-              const fallbackContainer = document.getElementById('edu-bot-container');
-              
-              if (dashboardContainer) {
-                // Move all children from fallback to Dashboard container if they exist
-                if (fallbackContainer) {
-                  while (fallbackContainer.firstChild) {
-                    dashboardContainer.appendChild(fallbackContainer.firstChild);
-                  }
-                }
-                
-                // Also find and move any chatbot elements that may be elsewhere in the DOM
-                const botElements = document.querySelectorAll('iframe[src*="rag-production-3a4c"], [id*="edu-bot"]:not(#edu-bot-container):not(#edu-bot-dashboard-container), [id*="chat"], [id*="widget"], [id*="bot"], [class*="edu-bot"], [class*="FloatingChatWidget"], [class*="chat"], [class*="widget"], [class*="bot"]');
-                botElements.forEach(el => {
-                  if (el !== dashboardContainer && el !== fallbackContainer && !dashboardContainer.contains(el) && el.parentNode && el.parentNode !== dashboardContainer) {
-                    dashboardContainer.appendChild(el);
-                  }
-                });
-              }
-            };
-            
-            setTimeout(moveToDashboard, 500);
+            // CRITICAL: Do NOT move chatbot DOM elements - React controls them
+            // Chatbot will render into dashboardContainer naturally
+            // Visibility will be controlled via CSS only (no DOM manipulation)
             
             botInitialized.current = true;
             return; // Stop retrying once initialized

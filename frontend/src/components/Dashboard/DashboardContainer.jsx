@@ -246,44 +246,26 @@ const DashboardContainer = () => {
         )}
       </button>
 
-      {/* Floating Chatbot Panel - Toggleable overlay */}
-      {/* Container always exists in DOM (for chatbot initialization), visibility controlled by CSS */}
+      {/* Chatbot Container - DO NOT wrap or move chatbot DOM */}
+      {/* Chatbot renders here naturally, visibility controlled via CSS only (no DOM manipulation) */}
       <div
-        className={`fixed bottom-24 right-6 z-40 bg-white dark:bg-neutral-800 rounded-lg shadow-2xl border border-neutral-200 dark:border-neutral-700 transition-all duration-300 ease-in-out ${
-          chatOpen ? 'opacity-100 translate-y-0 pointer-events-auto visible' : 'opacity-0 translate-y-4 pointer-events-none invisible'
-        }`}
+        id="edu-bot-dashboard-container"
         style={{
+          position: 'fixed',
+          bottom: '100px',
+          right: '24px',
           width: '400px',
           maxWidth: 'calc(100vw - 3rem)',
           maxHeight: '600px',
           minHeight: '400px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
+          zIndex: 40,
+          opacity: chatOpen ? 1 : 0,
+          pointerEvents: chatOpen ? 'auto' : 'none',
+          visibility: chatOpen ? 'visible' : 'hidden',
+          transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out, visibility 0.3s ease-in-out',
+          transform: chatOpen ? 'translateY(0)' : 'translateY(100%)',
         }}
-      >
-        {/* Panel Header */}
-        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-200">AI Assistant</h3>
-          <button
-            onClick={() => setChatOpen(false)}
-            className="p-1 rounded-md hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 transition-colors"
-            aria-label="Close chatbot"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Chatbot Container - Existing chatbot renders here */}
-        <div
-          id="edu-bot-dashboard-container"
-          className="flex-1 overflow-auto"
-          style={{
-            minHeight: '350px',
-            pointerEvents: 'auto'
-          }}
-        />
-      </div>
+      />
     </div>
   );
 };
