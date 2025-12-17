@@ -8,6 +8,8 @@ import ReportsPage from './components/Reports/ReportsPage';
 import AICustomPage from './components/AICustom/AICustomPage';
 import './styles/index.css';
 
+// App.jsx is compatible with third-party floating widgets (e.g., RAG chatbot)
+// No overflow:hidden, no container restrictions, no DOM manipulation that would block portal-based UI
 function App() {
   return (
     <ThemeProvider>

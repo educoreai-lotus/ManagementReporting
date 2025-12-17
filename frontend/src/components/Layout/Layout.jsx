@@ -22,38 +22,11 @@ const Layout = ({ children }) => {
     }
   }, []);
 
-  // Create debug badge for initialization status (temporary, easy to remove)
-  useEffect(() => {
-    let debugBadge = document.getElementById('edu-bot-debug');
-    if (!debugBadge) {
-      debugBadge = document.createElement('div');
-      debugBadge.id = 'edu-bot-debug';
-      debugBadge.style.position = 'fixed';
-      debugBadge.style.top = '16px';
-      debugBadge.style.right = '16px';
-      debugBadge.style.padding = '4px 8px';
-      debugBadge.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-      debugBadge.style.color = 'white';
-      debugBadge.style.fontSize = '11px';
-      debugBadge.style.fontFamily = 'monospace';
-      debugBadge.style.borderRadius = '4px';
-      debugBadge.style.zIndex = '2147483647';
-      debugBadge.style.pointerEvents = 'none';
-      debugBadge.textContent = 'BOT: container ok';
-      document.body.appendChild(debugBadge);
-    }
-  }, []);
-
   useEffect(() => {
     // Prevent multiple initializations
     if (botInitialized.current) {
       return;
     }
-
-    const updateDebug = (text) => {
-      const badge = document.getElementById('edu-bot-debug');
-      if (badge) badge.textContent = text;
-    };
 
     // Retry mechanism: token-optional initialization (treat token gating as TRUE by default)
     let attemptCount = 0;
@@ -81,7 +54,6 @@ const Layout = ({ children }) => {
 
       // Wait for container and script function - ensure app is fully ready
       if (container && hasInitFunction) {
-        updateDebug('BOT: initializing');
 
         // Extract userId from JWT if possible, otherwise use fallback
         // RAG expects valid userId format - extract from token or use fallback
@@ -114,17 +86,13 @@ const Layout = ({ children }) => {
             // Verify initialization result (if returned) - bot should consider itself UI-enabled
             // RAG bot should render UI naturally based on its internal logic
             botInitialized.current = true;
-            updateDebug('BOT: initialized');
             return; // Stop retrying once initialized
           } catch (error) {
-            updateDebug('BOT: init failed');
             // Continue retrying if initialization fails
           }
         } else {
           return; // Already initialized
         }
-      } else if (container && !hasInitFunction) {
-        updateDebug('BOT: waiting for script');
       }
 
       // Load bot script if not already loaded (only once)
