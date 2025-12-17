@@ -6,6 +6,15 @@ const Layout = ({ children }) => {
   const { theme } = useTheme();
   const botInitialized = useRef(false);
 
+  // Create chatbot container in document.body to avoid layout overflow clipping
+  useEffect(() => {
+    if (!document.getElementById('edu-bot-container')) {
+      const container = document.createElement('div');
+      container.id = 'edu-bot-container';
+      document.body.appendChild(container);
+    }
+  }, []);
+
   useEffect(() => {
     // Prevent multiple initializations
     if (botInitialized.current) {
@@ -86,8 +95,6 @@ const Layout = ({ children }) => {
       <main className="container mx-auto px-6 pt-24 pb-8">
         {children}
       </main>
-      {/* RAG Chatbot container - widget will be injected here */}
-      <div id="edu-bot-container"></div>
     </div>
   );
 };
