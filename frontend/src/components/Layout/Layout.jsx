@@ -76,25 +76,14 @@ const Layout = ({ children }) => {
         }
 
         // Initialize chatbot exactly once with official RAG parameters
-        // Chatbot will render into Dashboard container
         if (!botInitialized.current) {
           try {
-            const initResult = window.initializeEducoreBot({
+            window.initializeEducoreBot({
               microservice: 'HR_MANAGEMENT_REPORTING',
               userId: userId,
               token: token,
               tenantId: 'default'
             });
-            
-            // Store chatbot API reference globally if returned (for programmatic open/close)
-            // Common patterns: initResult may contain { open, close, toggle } methods
-            if (initResult && typeof initResult === 'object') {
-              window.educoreBotAPI = initResult;
-            }
-            
-            // CRITICAL: Do NOT move chatbot DOM elements - React controls them
-            // Chatbot will render into dashboardContainer naturally
-            // Visibility will be controlled via CSS only (no DOM manipulation)
             
             botInitialized.current = true;
             return; // Stop retrying once initialized

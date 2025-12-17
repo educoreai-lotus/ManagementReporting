@@ -10,7 +10,7 @@ import ErrorMessage from '../Common/ErrorMessage';
 import EmptyState from '../Common/EmptyState';
 import NotificationBanner from '../Common/NotificationBanner';
 import RefreshStatusModal from './RefreshStatusModal';
-import { Menu, MessageCircle, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 const DashboardContainer = () => {
   const navigate = useNavigate();
@@ -27,37 +27,7 @@ const DashboardContainer = () => {
   } = useDashboardData();
   const [boxOpen, setBoxOpen] = useState(false);
   const [isStatusModalOpen, setStatusModalOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false); // Chatbot panel open/close state
   const [allCharts, setAllCharts] = useState(null); // All charts (priority + BOX) for rendering
-
-  // Handle chatbot open/close via its official API (if exposed)
-  const handleChatToggle = () => {
-    const newChatOpen = !chatOpen;
-    setChatOpen(newChatOpen);
-
-    // Attempt to call chatbot's official open/close API if it exists
-    // Common API patterns: openEducoreBot, toggleEducoreBot, educoreBotAPI.open()
-    if (newChatOpen) {
-      // Try to open chatbot via its internal API
-      if (typeof window.openEducoreBot === 'function') {
-        window.openEducoreBot();
-      } else if (typeof window.toggleEducoreBot === 'function') {
-        window.toggleEducoreBot(true);
-      } else if (window.educoreBotAPI && typeof window.educoreBotAPI.open === 'function') {
-        window.educoreBotAPI.open();
-      }
-      // If no API exists, CSS visibility is the only available toggle
-    } else {
-      // Try to close chatbot via its internal API
-      if (typeof window.closeEducoreBot === 'function') {
-        window.closeEducoreBot();
-      } else if (typeof window.toggleEducoreBot === 'function') {
-        window.toggleEducoreBot(false);
-      } else if (window.educoreBotAPI && typeof window.educoreBotAPI.close === 'function') {
-        window.educoreBotAPI.close();
-      }
-    }
-  };
 
   const failedServicesMap = useMemo(() => {
     if (!refreshStatus?.failed) return {};
@@ -259,42 +229,8 @@ const DashboardContainer = () => {
         onRetry={handleRetryFailed}
       />
 
-      {/* Floating Chat Bubble Button - Fixed position, always visible */}
-      <button
-        onClick={handleChatToggle}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-        aria-label={chatOpen ? 'Close chatbot' : 'Open chatbot'}
-        style={{
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-        }}
-      >
-        {chatOpen ? (
-          <X className="w-6 h-6" />
-        ) : (
-          <MessageCircle className="w-6 h-6" />
-        )}
-      </button>
-
-      {/* Chatbot Container - DO NOT wrap or move chatbot DOM */}
-      {/* Chatbot renders here naturally, visibility controlled via CSS only (no DOM manipulation) */}
-      <div
-        id="edu-bot-dashboard-container"
-        style={{
-          position: 'fixed',
-          bottom: '100px',
-          right: '24px',
-          width: '400px',
-          maxWidth: 'calc(100vw - 3rem)',
-          maxHeight: '600px',
-          minHeight: '400px',
-          zIndex: 40,
-          opacity: chatOpen ? 1 : 0,
-          pointerEvents: chatOpen ? 'auto' : 'none',
-          visibility: chatOpen ? 'visible' : 'hidden',
-          transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out, visibility 0.3s ease-in-out',
-          transform: chatOpen ? 'translateY(0)' : 'translateY(100%)',
-        }}
-      />
+      {/* RAG Chatbot Container - Renders its own floating UI */}
+      <div id="edu-bot-dashboard-container" />
     </div>
   );
 };
