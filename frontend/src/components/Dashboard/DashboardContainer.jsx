@@ -161,77 +161,79 @@ const DashboardContainer = () => {
   };
 
   return (
-    <div className="relative">
-      {showBanner && (
-        <NotificationBanner
-          variant={showFailureBanner ? 'error' : 'warning'}
-          message={bannerMessage}
-          actionLabel="View details"
-          onAction={() => setStatusModalOpen(true)}
-          onRetry={handleRetryFailed}
-          onClose={handleDismissBanner}
-          retryLabel={showFailureBanner ? 'Retry refresh' : 'Retry failed sources'}
-        />
-      )}
+    <>
+      <div className="relative">
+        {showBanner && (
+          <NotificationBanner
+            variant={showFailureBanner ? 'error' : 'warning'}
+            message={bannerMessage}
+            actionLabel="View details"
+            onAction={() => setStatusModalOpen(true)}
+            onRetry={handleRetryFailed}
+            onClose={handleDismissBanner}
+            retryLabel={showFailureBanner ? 'Retry refresh' : 'Retry failed sources'}
+          />
+        )}
 
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4 pt-2">
-          <div className="flex-1 min-w-0">
-            <DashboardHeader lastUpdated={lastUpdated} onRefresh={refresh} refreshing={refreshing} />
+        <div className="space-y-6">
+          <div className="flex items-start justify-between gap-4 pt-2">
+            <div className="flex-1 min-w-0">
+              <DashboardHeader lastUpdated={lastUpdated} onRefresh={refresh} refreshing={refreshing} />
+            </div>
+            <button
+              onClick={() => setBoxOpen(!boxOpen)}
+              className="btn-secondary flex items-center space-x-2 flex-shrink-0"
+              aria-label="Toggle BOX sidebar"
+            >
+              <Menu className="h-5 w-5" />
+              <span>BOX</span>
+            </button>
           </div>
-          <button
-            onClick={() => setBoxOpen(!boxOpen)}
-            className="btn-secondary flex items-center space-x-2 flex-shrink-0"
-            aria-label="Toggle BOX sidebar"
-          >
-            <Menu className="h-5 w-5" />
-            <span>BOX</span>
-          </button>
-        </div>
-        <ChartGrid
-          charts={priorityCharts}
-          onChartClick={handleChartClick}
-          failedServices={failedServicesMap}
-        />
-      </div>
-
-      {/* Hidden container to render ALL non-priority charts (BOX + others) for transcription capture */}
-      {hiddenCharts.length > 0 && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: '-9999px',
-            left: '-9999px',
-            width: '1200px',
-            pointerEvents: 'none',
-            opacity: 0,
-          }}
-        >
           <ChartGrid
-            charts={hiddenCharts}
-            onChartClick={() => {}}
+            charts={priorityCharts}
+            onChartClick={handleChartClick}
             failedServices={failedServicesMap}
           />
         </div>
-      )}
 
-      <BOXSidebar
-        isOpen={boxOpen}
-        onClose={() => setBoxOpen(false)}
-        onChartClick={handleBoxChartClick}
-      />
+        {/* Hidden container to render ALL non-priority charts (BOX + others) for transcription capture */}
+        {hiddenCharts.length > 0 && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: '-9999px',
+              left: '-9999px',
+              width: '1200px',
+              pointerEvents: 'none',
+              opacity: 0,
+            }}
+          >
+            <ChartGrid
+              charts={hiddenCharts}
+              onChartClick={() => {}}
+              failedServices={failedServicesMap}
+            />
+          </div>
+        )}
 
-      <RefreshStatusModal
-        isOpen={isStatusModalOpen}
-        onClose={() => setStatusModalOpen(false)}
-        status={refreshStatus}
-        onRetry={handleRetryFailed}
-      />
+        <BOXSidebar
+          isOpen={boxOpen}
+          onClose={() => setBoxOpen(false)}
+          onChartClick={handleBoxChartClick}
+        />
 
-      {/* RAG Chatbot Container - Renders its own floating UI */}
+        <RefreshStatusModal
+          isOpen={isStatusModalOpen}
+          onClose={() => setStatusModalOpen(false)}
+          status={refreshStatus}
+          onRetry={handleRetryFailed}
+        />
+      </div>
+
+      {/* RAG Chatbot Container - Outside relative container to allow floating UI */}
       <div id="edu-bot-container" />
-    </div>
+    </>
   );
 };
 
