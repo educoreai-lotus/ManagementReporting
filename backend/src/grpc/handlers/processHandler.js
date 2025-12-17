@@ -4,7 +4,7 @@ import { fetchAiReportConclusionsForLast24Hours } from "../../infrastructure/db/
  * gRPC Process handler
  * Mirrors the behavior of the existing REST endpoint:
  * - Fetches AI report conclusions from the last 24 hours
- * - Returns { entries: [...] } in the response envelope
+ * - Returns entries array directly in data field (not wrapped in { entries: [...] })
  *
  * @param {import('@grpc/grpc-js').ServerUnaryCall} call
  * @param {import('@grpc/grpc-js').sendUnaryData} callback
@@ -40,18 +40,16 @@ export async function processHandler(call, callback) {
     const entries = await fetchAiReportConclusionsForLast24Hours();
     console.log(`[gRPC Process] ✅ Fetched ${entries.length} entries from database`);
 
-    // 3. Build response payload: { entries: [...] }
-    const responsePayload = { entries };
-
-    // 4. Wrap in standard gRPC response envelope
+    // 3. Build response envelope with entries array directly in data field (not wrapped)
     const processedAt = new Date().toISOString();
     const responseEnvelope = {
       request_id: requestId,
       success: true,
-      data: responsePayload,
+      data: entries, // Direct array, not { entries: [...] }
       metadata: {
         service: process.env.MR_NAME || "managementreporting-service",
         processed_at: processedAt,
+        count: entries.length,
       },
     };
 
