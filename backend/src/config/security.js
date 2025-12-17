@@ -47,7 +47,8 @@ export const securityConfig = {
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'self'"
+    // CSP: Allows approved RAG chatbot script from rag-production-3a4c.up.railway.app
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://rag-production-3a4c.up.railway.app; connect-src 'self' https://rag-production-3a4c.up.railway.app; frame-src https://rag-production-3a4c.up.railway.app"
   }
 };
 
