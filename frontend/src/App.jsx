@@ -24,6 +24,22 @@ function App() {
           </Routes>
         </Layout>
       </Router>
+
+      <div
+        id="edu-bot-container"
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          width: "400px",
+          height: "600px",
+          border: "3px solid red",
+          zIndex: 999999,
+          background: "white",
+        }}
+      >
+        CHATBOT CONTAINER
+      </div>
     </ThemeProvider>
   );
 }
