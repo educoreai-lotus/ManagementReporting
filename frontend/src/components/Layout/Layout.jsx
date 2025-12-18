@@ -7,6 +7,14 @@ const Layout = ({ children }) => {
   const botInitialized = useRef(false);
 
   useEffect(() => {
+    if (!document.getElementById('edu-bot-container')) {
+      const div = document.createElement('div');
+      div.id = 'edu-bot-container';
+      document.body.appendChild(div);
+    }
+  }, []);
+
+  useEffect(() => {
     // Prevent multiple initializations
     if (botInitialized.current) {
       return;

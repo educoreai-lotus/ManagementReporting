@@ -223,17 +223,14 @@ const DashboardContainer = () => {
           onChartClick={handleBoxChartClick}
         />
 
-        <RefreshStatusModal
-          isOpen={isStatusModalOpen}
-          onClose={() => setStatusModalOpen(false)}
-          status={refreshStatus}
-          onRetry={handleRetryFailed}
-        />
-      </div>
-
-      {/* RAG Chatbot Container - Outside relative container to allow floating UI */}
-      <div id="edu-bot-container" />
-    </>
+      <RefreshStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        status={refreshStatus}
+        onRetry={handleRetryFailed}
+      />
+    </div>
+  </>
   );
 };
 
