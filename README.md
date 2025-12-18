@@ -144,3 +144,5 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed step-by-step instructions.
 
 Proprietary - EducoreAI
 
+<!-- Updated: December 18, 2025 -->
+
