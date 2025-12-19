@@ -7,18 +7,52 @@
     @apply bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 font-primary;
   }
   
-  /* RAG Chatbot Container - Ensure it's visible and floating */
+  /* RAG Chatbot Container - Minimal styling, let bot handle its own positioning */
+  /* The bot uses position:fixed internally, so container should not constrain it */
   #edu-bot-container {
-    position: fixed !important;
-    bottom: 0 !important;
-    right: 0 !important;
+    /* Remove all size constraints */
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    
+    /* Don't set position - let bot elements position themselves with fixed */
+    position: static !important;
+    
+    /* High z-index for stacking context */
     z-index: 999999 !important;
-    pointer-events: none !important; /* Allow clicks to pass through container to bot elements */
+    
+    /* Allow bot elements to be clickable */
+    pointer-events: none !important;
+    overflow: visible !important;
   }
   
-  /* Ensure bot elements inside container are clickable */
+  /* Bot elements should handle their own positioning and be clickable */
   #edu-bot-container > * {
     pointer-events: auto !important;
+  }
+  
+  /* Ensure bot button is properly sized and positioned */
+  /* Fix for bot button that appears too small or off-screen */
+  #edu-bot-container button[class*="fixed"][class*="bottom"][class*="right"] {
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 24px !important;
+    width: 64px !important;
+    height: 64px !important;
+    min-width: 64px !important;
+    min-height: 64px !important;
+    z-index: 999999 !important;
+  }
+  
+  /* Ensure bot panel is properly positioned */
+  #edu-bot-container [class*="fixed"][class*="bottom"]:not(button) {
+    position: fixed !important;
+    bottom: 96px !important;
+    right: 24px !important;
+    z-index: 999999 !important;
   }
 }
 
