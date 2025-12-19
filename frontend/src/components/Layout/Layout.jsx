@@ -181,8 +181,12 @@ function setupBotToggle() {
     const wasOpen = chatIsOpen;
     const nowOpen = checkChatState();
     
-    // If panel opened but user didn't click, close it (prevent auto-open)
-    if (!wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick) {
+    // Only prevent auto-open if:
+    // 1. Panel just opened (was closed, now open)
+    // 2. User didn't initiate it (no user click)
+    // 3. We're not currently processing a user click
+    // 4. We haven't just prevented an auto-open (avoid loops)
+    if (!wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick && !autoOpenPrevented) {
       console.log('🤖 RAG Toggle: Panel auto-opened, closing it to maintain closed default state');
       autoOpenPrevented = true;
       
@@ -199,15 +203,25 @@ function setupBotToggle() {
             chatIsOpen = false;
           }
         }
-        autoOpenPrevented = false;
+        // Reset flag after a delay
+        setTimeout(() => {
+          autoOpenPrevented = false;
+        }, 1000);
       }, 100);
     }
     
-    // Reset user initiated flag after state change
-    if (wasOpen !== nowOpen) {
+    // Update state
+    chatIsOpen = nowOpen;
+    
+    // Reset user initiated flag after state change (but give it time for user-initiated opens)
+    if (wasOpen !== nowOpen && userInitiatedOpen) {
       setTimeout(() => {
-        userInitiatedOpen = false;
-      }, 500);
+        // Only reset if chat is still open (user successfully opened it)
+        if (checkChatState()) {
+          console.log('🤖 RAG Toggle: User-initiated open confirmed, resetting flag');
+          userInitiatedOpen = false;
+        }
+      }, 1000); // Longer delay to ensure user-initiated opens complete
     }
   });
 
@@ -343,9 +357,27 @@ function setupBotToggle() {
     } else {
       // Chat is closed, user wants to open it
       userInitiatedOpen = true;
+      isProcessingClick = true; // Prevent observer from interfering
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
-      // Don't prevent default - let bot's handler open it
+      
+      // Don't prevent default or stop propagation - let bot's handler open it
       // The userInitiatedOpen flag will prevent the observer from closing it
+      
+      // Reset processing flag after bot has time to open
+      setTimeout(() => {
+        isProcessingClick = false;
+        // Verify it opened
+        setTimeout(() => {
+          const opened = checkChatState();
+          if (opened) {
+            console.log('🤖 RAG Toggle: Chat opened successfully');
+          } else {
+            console.log('🤖 RAG Toggle: Chat did not open, may need manual trigger');
+            // If bot didn't open it, try to trigger it manually
+            // But don't do this - let bot handle it naturally
+          }
+        }, 300);
+      }, 500);
     }
   }, true); // Capture phase - runs before bot's handler
 
