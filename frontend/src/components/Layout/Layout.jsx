@@ -443,86 +443,75 @@ function setupBotToggle() {
       panelBlocked = false;
       isProcessingClick = true; // Prevent observer from interfering
       
-      // Find panel and unblock it immediately
-      // Don't wait for bot - we control the visibility
-      panelElement = findChatPanel();
-      
-      if (panelElement) {
-        // Unblock the panel - remove blocking styles immediately
-        panelElement.style.removeProperty('display');
-        panelElement.style.removeProperty('visibility');
-        panelElement.style.removeProperty('opacity');
-        console.log('🤖 RAG Toggle: Unblocked panel immediately');
-      } else {
-        // Panel not found yet - try to find it in container children
-        const containerChildren = Array.from(container.children);
-        for (const child of containerChildren) {
-          if (child.tagName !== 'BUTTON') {
-            const rect = child.getBoundingClientRect();
-            if (rect.width > 200 || rect.height > 300) {
-              // Found potential panel
-              panelElement = child;
-              panelElement.style.removeProperty('display');
-              panelElement.style.removeProperty('visibility');
-              panelElement.style.removeProperty('opacity');
-              console.log('🤖 RAG Toggle: Found and unblocked panel from container children');
-              break;
+      // Function to force unblock panel
+      const forceUnblockPanel = () => {
+        // Try multiple methods to find panel
+        panelElement = findChatPanel();
+        
+        if (!panelElement) {
+          // Try container children
+          const containerChildren = Array.from(container.children);
+          for (const child of containerChildren) {
+            if (child.tagName !== 'BUTTON') {
+              const rect = child.getBoundingClientRect();
+              const style = window.getComputedStyle(child);
+              // Look for any non-button child that could be panel
+              if (rect.width > 100 || rect.height > 100 || containerChildren.length > 1) {
+                panelElement = child;
+                break;
+              }
             }
           }
         }
-      }
+        
+        if (panelElement) {
+          // Remove ALL blocking styles
+          panelElement.style.removeProperty('display');
+          panelElement.style.removeProperty('visibility');
+          panelElement.style.removeProperty('opacity');
+          
+          // Force show with !important to override any blocking
+          panelElement.style.setProperty('display', 'block', 'important');
+          panelElement.style.setProperty('visibility', 'visible', 'important');
+          panelElement.style.setProperty('opacity', '1', 'important');
+          
+          console.log('🤖 RAG Toggle: Forced panel to show with !important');
+          return true;
+        }
+        return false;
+      };
+      
+      // Unblock immediately
+      forceUnblockPanel();
       
       // Also let bot's handler run (in case it needs to do something)
       // Don't prevent default or stop propagation
       
-      // Verify it opened after a moment
-      setTimeout(() => {
+      // Verify and retry multiple times
+      let retryCount = 0;
+      const maxRetries = 5;
+      const checkInterval = setInterval(() => {
+        retryCount++;
         const opened = checkChatState();
+        
         if (opened) {
           console.log('✅ RAG Toggle: Chat opened successfully');
-          isProcessingClick = false; // Allow observer to work again
-        } else {
-          console.log('⚠️ RAG Toggle: Chat still not visible, trying again');
-          // Try one more time - find panel and force unblock
-          panelElement = findChatPanel();
-          if (!panelElement) {
-            // Try container children again
-            const containerChildren = Array.from(container.children);
-            for (const child of containerChildren) {
-              if (child.tagName !== 'BUTTON') {
-                const rect = child.getBoundingClientRect();
-                if (rect.width > 200 || rect.height > 300) {
-                  panelElement = child;
-                  break;
-                }
-              }
-            }
-          }
-          
-          if (panelElement) {
-            // Force unblock - remove ALL styles that might block it
-            panelElement.style.removeProperty('display');
-            panelElement.style.removeProperty('visibility');
-            panelElement.style.removeProperty('opacity');
-            // Also check computed style - if still blocked, use important to override
-            setTimeout(() => {
-              const style = window.getComputedStyle(panelElement);
-              if (style.display === 'none' || style.visibility === 'hidden') {
-                // Still blocked - force show with important
-                panelElement.style.setProperty('display', 'block', 'important');
-                panelElement.style.setProperty('visibility', 'visible', 'important');
-                panelElement.style.setProperty('opacity', '1', 'important');
-                console.log('🤖 RAG Toggle: Forced panel to show with !important');
-              }
-            }, 100);
-          }
-          
-          // Keep isProcessingClick true a bit longer to prevent observer from blocking
+          clearInterval(checkInterval);
+          isProcessingClick = false;
+        } else if (retryCount >= maxRetries) {
+          console.log('⚠️ RAG Toggle: Chat still not visible after multiple attempts');
+          // Last attempt - force unblock again
+          forceUnblockPanel();
+          clearInterval(checkInterval);
+          // Keep isProcessingClick true longer to prevent observer
           setTimeout(() => {
             isProcessingClick = false;
-          }, 1000); // Give more time for panel to fully render
+          }, 2000);
+        } else {
+          // Try to unblock again
+          forceUnblockPanel();
         }
-      }, 500); // Longer delay to ensure bot finished opening
+      }, 200); // Check every 200ms
     }
   }, true); // Capture phase - runs before bot's handler
 
