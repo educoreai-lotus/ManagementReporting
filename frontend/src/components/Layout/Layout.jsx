@@ -264,22 +264,18 @@ function setupBotToggle() {
 
   // Add toggle handler - intercept click before bot's handler
   button.addEventListener('click', (e) => {
-    // Debounce rapid clicks
+    // Simple debounce - only prevent if click was VERY recent (100ms)
     const now = Date.now();
-    if (now - lastClickTime < CLICK_DEBOUNCE_MS) {
-      console.log('🤖 RAG Toggle: Click debounced');
-      e.stopPropagation();
-      e.preventDefault();
-      return;
+    if (now - lastClickTime < 100) {
+      console.log('🤖 RAG Toggle: Click debounced (too rapid)');
+      return; // Don't prevent, just ignore
     }
     lastClickTime = now;
 
-    // Prevent infinite loops
-    if (isProcessingClick) {
-      console.log('🤖 RAG Toggle: Already processing click, ignoring');
-      e.stopPropagation();
-      e.preventDefault();
-      return;
+    // Only prevent if we're actively processing a close action
+    if (isProcessingClick && checkChatState()) {
+      console.log('🤖 RAG Toggle: Already processing close, ignoring');
+      return; // Don't prevent, just ignore
     }
 
     // Check current state
@@ -367,36 +363,23 @@ function setupBotToggle() {
     } else {
       // Chat is closed, user wants to open it
       userInitiatedOpen = true;
-      isProcessingClick = true; // Prevent observer from interfering
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
-      console.log('🤖 RAG Toggle: Setting flags - userInitiatedOpen=true, isProcessingClick=true');
+      console.log('🤖 RAG Toggle: Setting userInitiatedOpen=true, allowing bot to open');
       
       // Don't prevent default or stop propagation - let bot's handler open it
       // The userInitiatedOpen flag will prevent the observer from closing it
-      // But only if initialLoadComplete is true (after 2 seconds)
+      // (only if initialLoadComplete is true, which it should be after 2 seconds)
       
-      // Reset processing flag after bot has time to open
+      // Don't set isProcessingClick here - we want bot to handle opening naturally
+      // Just verify it opened after a moment
       setTimeout(() => {
         const opened = checkChatState();
         if (opened) {
-          console.log('🤖 RAG Toggle: Chat opened successfully');
-          // Keep isProcessingClick true a bit longer to ensure observer doesn't interfere
-          setTimeout(() => {
-            isProcessingClick = false;
-            console.log('🤖 RAG Toggle: Reset isProcessingClick, chat should remain open');
-          }, 500);
+          console.log('✅ RAG Toggle: Chat opened successfully');
         } else {
-          console.log('🤖 RAG Toggle: Chat did not open yet, waiting...');
-          // Wait a bit more
-          setTimeout(() => {
-            const stillClosed = !checkChatState();
-            if (stillClosed) {
-              console.log('🤖 RAG Toggle: Chat still closed, bot may not have responded');
-            }
-            isProcessingClick = false;
-          }, 1000);
+          console.log('⚠️ RAG Toggle: Chat did not open, bot may need more time');
         }
-      }, 500);
+      }, 800);
     }
   }, true); // Capture phase - runs before bot's handler
 
