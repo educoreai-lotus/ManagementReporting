@@ -65,19 +65,27 @@ function setupBotToggle() {
 
   // Find the close button (X button in panel header)
   const findCloseButton = () => {
+    // First, find the chat panel to narrow search
+    const panel = findChatPanel();
+    const searchRoot = panel || container;
+
+    // Try multiple selectors for close button
     const closeSelectors = [
       'button[aria-label*="close" i]',
       'button[aria-label*="Close" i]',
       'button[aria-label*="CLOSE" i]',
-      '[class*="close" i]:not([class*="button"])',
+      'button[title*="close" i]',
+      'button[title*="Close" i]',
+      '[role="button"][aria-label*="close" i]',
     ];
 
     for (const selector of closeSelectors) {
       try {
-        const btn = container.querySelector(selector);
-        if (btn && btn.tagName === 'BUTTON') {
+        const btn = searchRoot.querySelector(selector);
+        if (btn) {
           const rect = btn.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
+            console.log('🤖 RAG Toggle: Found close button via selector:', selector);
             return btn;
           }
         }
@@ -86,27 +94,61 @@ function setupBotToggle() {
       }
     }
 
-    // Fallback: look for button with X icon (SVG path with "M" commands typical of X)
-    const allButtons = container.querySelectorAll('button');
-    for (const btn of allButtons) {
-      const svg = btn.querySelector('svg');
-      if (svg) {
-        const paths = svg.querySelectorAll('path');
-        // X icon usually has 2 paths with line commands
-        if (paths.length >= 2) {
-          const pathData = Array.from(paths).map(p => p.getAttribute('d') || '').join('');
-          // Check for line patterns typical of X (M...L... or similar)
-          if (pathData.includes('M') && (pathData.includes('L') || pathData.includes('l'))) {
-            // Make sure it's not the main bubble button
-            const rect = btn.getBoundingClientRect();
-            if (rect.width < 100 && rect.height < 100) { // Close button is smaller
-              return btn;
+    // Look for button with X icon in panel header area
+    if (panel) {
+      // Find header area (usually first child or has specific classes)
+      const header = panel.querySelector('[class*="header" i]') || 
+                     panel.querySelector('[class*="Header" i]') ||
+                     panel.firstElementChild;
+      
+      if (header) {
+        const headerButtons = header.querySelectorAll('button');
+        for (const btn of headerButtons) {
+          // Check if button has X icon (cross pattern)
+          const svg = btn.querySelector('svg');
+          if (svg) {
+            const paths = svg.querySelectorAll('path');
+            if (paths.length >= 2) {
+              // X icon typically has 2 diagonal lines
+              const pathData = Array.from(paths).map(p => p.getAttribute('d') || '').join('');
+              // Check for diagonal line patterns (M followed by L or l)
+              if (pathData.match(/M[^M]*[Ll][^M]*M[^M]*[Ll]/)) {
+                const rect = btn.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0 && rect.width < 50 && rect.height < 50) {
+                  console.log('🤖 RAG Toggle: Found close button via X icon in header');
+                  return btn;
+                }
+              }
             }
+          }
+          // Also check for text content like "×" or "✕"
+          const text = btn.textContent.trim();
+          if (text === '×' || text === '✕' || text === '✖' || text.toLowerCase() === 'close') {
+            console.log('🤖 RAG Toggle: Found close button via text content');
+            return btn;
           }
         }
       }
     }
 
+    // Last resort: find any small button in top-right of panel
+    if (panel) {
+      const allButtons = panel.querySelectorAll('button');
+      const panelRect = panel.getBoundingClientRect();
+      for (const btn of allButtons) {
+        const rect = btn.getBoundingClientRect();
+        // Small button in top-right area of panel
+        if (rect.width > 0 && rect.height > 0 && 
+            rect.width < 50 && rect.height < 50 &&
+            rect.right > panelRect.right - 60 &&
+            rect.top < panelRect.top + 60) {
+          console.log('🤖 RAG Toggle: Found potential close button in top-right');
+          return btn;
+        }
+      }
+    }
+
+    console.log('🤖 RAG Toggle: Close button not found');
     return null;
   };
 
@@ -175,28 +217,70 @@ function setupBotToggle() {
         
         if (closeButton) {
           console.log('🤖 RAG Toggle: Found close button, clicking it');
-          // Create a new event to click the close button
-          const closeEvent = new MouseEvent('click', {
+          
+          // Try multiple methods to trigger close
+          // Method 1: Direct click
+          if (typeof closeButton.click === 'function') {
+            closeButton.click();
+          }
+          
+          // Method 2: Dispatch click event
+          const clickEvent = new MouseEvent('click', {
             bubbles: true,
             cancelable: true,
-            view: window
+            view: window,
+            button: 0
           });
-          closeButton.dispatchEvent(closeEvent);
+          closeButton.dispatchEvent(clickEvent);
+          
+          // Method 3: Dispatch mousedown + mouseup (some components listen to these)
+          const mouseDownEvent = new MouseEvent('mousedown', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            button: 0
+          });
+          const mouseUpEvent = new MouseEvent('mouseup', {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            button: 0
+          });
+          closeButton.dispatchEvent(mouseDownEvent);
+          setTimeout(() => {
+            closeButton.dispatchEvent(mouseUpEvent);
+          }, 10);
+          
+          // Verify it closed after a moment
+          setTimeout(() => {
+            const stillOpen = checkChatState();
+            if (stillOpen) {
+              console.log('🤖 RAG Toggle: Panel still open, trying CSS fallback');
+              const panel = findChatPanel();
+              if (panel) {
+                panel.style.display = 'none';
+                panel.style.visibility = 'hidden';
+                panel.style.opacity = '0';
+                chatIsOpen = false;
+              }
+            } else {
+              console.log('🤖 RAG Toggle: Panel closed successfully');
+            }
+            isProcessingClick = false;
+          }, 300);
         } else {
           // Fallback: hide panel directly via CSS
           console.log('🤖 RAG Toggle: No close button found, hiding panel via CSS');
           const panel = findChatPanel();
           if (panel) {
             panel.style.display = 'none';
+            panel.style.visibility = 'hidden';
+            panel.style.opacity = '0';
             chatIsOpen = false;
           }
-        }
-        
-        // Reset processing flag after a delay
-        setTimeout(() => {
           isProcessingClick = false;
-        }, 500);
-      }, 50);
+        }
+      }, 100); // Slightly longer delay to ensure bot's handler ran first
     } else {
       // Chat is closed, let bot's handler open it (don't prevent default)
       console.log('🤖 RAG Toggle: Chat is closed, allowing bot to open it');
