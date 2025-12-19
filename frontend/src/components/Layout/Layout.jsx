@@ -305,11 +305,13 @@ function setupBotToggle() {
     }
     
     // CRITICAL: Only block if panelBlocked is true AND we're not processing a user click
+    // AND initial blocking is complete (we've had time to set up)
     // This prevents blocking when user clicked to open
     if (panelElement && panelBlocked && !isProcessingClick) {
       // Check if bot tried to show it (display is not 'none')
       const style = window.getComputedStyle(panelElement);
-      if (style.display !== 'none' && style.visibility !== 'hidden') {
+      // Only block if it's actually visible (not already blocked)
+      if (style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0.1) {
         // Bot tried to show it, block it immediately
         setPanelVisibility(false);
       }
@@ -478,18 +480,49 @@ function setupBotToggle() {
         const opened = checkChatState();
         if (opened) {
           console.log('✅ RAG Toggle: Chat opened successfully');
+          isProcessingClick = false; // Allow observer to work again
         } else {
           console.log('⚠️ RAG Toggle: Chat still not visible, trying again');
-          // Try one more time
+          // Try one more time - find panel and force unblock
           panelElement = findChatPanel();
+          if (!panelElement) {
+            // Try container children again
+            const containerChildren = Array.from(container.children);
+            for (const child of containerChildren) {
+              if (child.tagName !== 'BUTTON') {
+                const rect = child.getBoundingClientRect();
+                if (rect.width > 200 || rect.height > 300) {
+                  panelElement = child;
+                  break;
+                }
+              }
+            }
+          }
+          
           if (panelElement) {
+            // Force unblock - remove ALL styles that might block it
             panelElement.style.removeProperty('display');
             panelElement.style.removeProperty('visibility');
             panelElement.style.removeProperty('opacity');
+            // Also check computed style - if still blocked, use important to override
+            setTimeout(() => {
+              const style = window.getComputedStyle(panelElement);
+              if (style.display === 'none' || style.visibility === 'hidden') {
+                // Still blocked - force show with important
+                panelElement.style.setProperty('display', 'block', 'important');
+                panelElement.style.setProperty('visibility', 'visible', 'important');
+                panelElement.style.setProperty('opacity', '1', 'important');
+                console.log('🤖 RAG Toggle: Forced panel to show with !important');
+              }
+            }, 100);
           }
+          
+          // Keep isProcessingClick true a bit longer to prevent observer from blocking
+          setTimeout(() => {
+            isProcessingClick = false;
+          }, 1000); // Give more time for panel to fully render
         }
-        isProcessingClick = false; // Allow observer to work again
-      }, 300);
+      }, 500); // Longer delay to ensure bot finished opening
     }
   }, true); // Capture phase - runs before bot's handler
 
