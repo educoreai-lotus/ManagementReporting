@@ -21,6 +21,8 @@ function setupBotToggle() {
   let chatIsOpen = false;
   let isProcessingClick = false;
   let lastClickTime = 0;
+  let userInitiatedOpen = false; // Track if user clicked to open
+  let autoOpenPrevented = false; // Track if we prevented auto-open
   const CLICK_DEBOUNCE_MS = 300; // Prevent rapid clicks
 
   // Find the bot button (the floating bubble button)
@@ -174,10 +176,67 @@ function setupBotToggle() {
 
   console.log('🤖 RAG Toggle: Setting up toggle functionality');
 
-  // Initial state check
+  // Use MutationObserver to track panel visibility and prevent auto-open
+  const observer = new MutationObserver(() => {
+    const wasOpen = chatIsOpen;
+    const nowOpen = checkChatState();
+    
+    // If panel opened but user didn't click, close it (prevent auto-open)
+    if (!wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick) {
+      console.log('🤖 RAG Toggle: Panel auto-opened, closing it to maintain closed default state');
+      autoOpenPrevented = true;
+      
+      setTimeout(() => {
+        const closeButton = findCloseButton();
+        if (closeButton) {
+          closeButton.click();
+        } else {
+          const panel = findChatPanel();
+          if (panel) {
+            panel.style.display = 'none';
+            panel.style.visibility = 'hidden';
+            panel.style.opacity = '0';
+            chatIsOpen = false;
+          }
+        }
+        autoOpenPrevented = false;
+      }, 100);
+    }
+    
+    // Reset user initiated flag after state change
+    if (wasOpen !== nowOpen) {
+      setTimeout(() => {
+        userInitiatedOpen = false;
+      }, 500);
+    }
+  });
+
+  observer.observe(container, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+
+  // Initial state check - close if auto-opened
   setTimeout(() => {
-    checkChatState();
-  }, 1000);
+    const initialState = checkChatState();
+    if (initialState) {
+      console.log('🤖 RAG Toggle: Panel was auto-opened on load, closing it');
+      const closeButton = findCloseButton();
+      if (closeButton) {
+        setTimeout(() => closeButton.click(), 200);
+      } else {
+        const panel = findChatPanel();
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+          panel.style.opacity = '0';
+          chatIsOpen = false;
+        }
+      }
+    }
+  }, 1500); // Wait for bot to fully initialize
 
   // Add toggle handler - intercept click before bot's handler
   button.addEventListener('click', (e) => {
@@ -282,9 +341,11 @@ function setupBotToggle() {
         }
       }, 100); // Slightly longer delay to ensure bot's handler ran first
     } else {
-      // Chat is closed, let bot's handler open it (don't prevent default)
-      console.log('🤖 RAG Toggle: Chat is closed, allowing bot to open it');
-      // Don't prevent default - let bot handle opening
+      // Chat is closed, user wants to open it
+      userInitiatedOpen = true;
+      console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
+      // Don't prevent default - let bot's handler open it
+      // The userInitiatedOpen flag will prevent the observer from closing it
     }
   }, true); // Capture phase - runs before bot's handler
 
