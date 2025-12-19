@@ -177,17 +177,25 @@ function setupBotToggle() {
   console.log('🤖 RAG Toggle: Setting up toggle functionality');
 
   // Use MutationObserver to track panel visibility and prevent auto-open
+  // But ONLY on initial load, not during user interactions
+  let initialLoadComplete = false;
+  setTimeout(() => {
+    initialLoadComplete = true;
+    console.log('🤖 RAG Toggle: Initial load complete, will allow user-initiated opens');
+  }, 2000); // After 2 seconds, assume any opens are user-initiated
+
   const observer = new MutationObserver(() => {
     const wasOpen = chatIsOpen;
     const nowOpen = checkChatState();
     
     // Only prevent auto-open if:
-    // 1. Panel just opened (was closed, now open)
-    // 2. User didn't initiate it (no user click)
-    // 3. We're not currently processing a user click
-    // 4. We haven't just prevented an auto-open (avoid loops)
-    if (!wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick && !autoOpenPrevented) {
-      console.log('🤖 RAG Toggle: Panel auto-opened, closing it to maintain closed default state');
+    // 1. Still in initial load phase (first 2 seconds)
+    // 2. Panel just opened (was closed, now open)
+    // 3. User didn't initiate it (no user click)
+    // 4. We're not currently processing a user click
+    // 5. We haven't just prevented an auto-open (avoid loops)
+    if (!initialLoadComplete && !wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick && !autoOpenPrevented) {
+      console.log('🤖 RAG Toggle: Panel auto-opened during initial load, closing it');
       autoOpenPrevented = true;
       
       setTimeout(() => {
@@ -220,8 +228,10 @@ function setupBotToggle() {
         if (checkChatState()) {
           console.log('🤖 RAG Toggle: User-initiated open confirmed, resetting flag');
           userInitiatedOpen = false;
+        } else {
+          console.log('🤖 RAG Toggle: Chat closed before flag reset, keeping userInitiatedOpen');
         }
-      }, 1000); // Longer delay to ensure user-initiated opens complete
+      }, 1500); // Longer delay to ensure user-initiated opens complete
     }
   });
 
@@ -359,24 +369,33 @@ function setupBotToggle() {
       userInitiatedOpen = true;
       isProcessingClick = true; // Prevent observer from interfering
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
+      console.log('🤖 RAG Toggle: Setting flags - userInitiatedOpen=true, isProcessingClick=true');
       
       // Don't prevent default or stop propagation - let bot's handler open it
       // The userInitiatedOpen flag will prevent the observer from closing it
+      // But only if initialLoadComplete is true (after 2 seconds)
       
       // Reset processing flag after bot has time to open
       setTimeout(() => {
-        isProcessingClick = false;
-        // Verify it opened
-        setTimeout(() => {
-          const opened = checkChatState();
-          if (opened) {
-            console.log('🤖 RAG Toggle: Chat opened successfully');
-          } else {
-            console.log('🤖 RAG Toggle: Chat did not open, may need manual trigger');
-            // If bot didn't open it, try to trigger it manually
-            // But don't do this - let bot handle it naturally
-          }
-        }, 300);
+        const opened = checkChatState();
+        if (opened) {
+          console.log('🤖 RAG Toggle: Chat opened successfully');
+          // Keep isProcessingClick true a bit longer to ensure observer doesn't interfere
+          setTimeout(() => {
+            isProcessingClick = false;
+            console.log('🤖 RAG Toggle: Reset isProcessingClick, chat should remain open');
+          }, 500);
+        } else {
+          console.log('🤖 RAG Toggle: Chat did not open yet, waiting...');
+          // Wait a bit more
+          setTimeout(() => {
+            const stillClosed = !checkChatState();
+            if (stillClosed) {
+              console.log('🤖 RAG Toggle: Chat still closed, bot may not have responded');
+            }
+            isProcessingClick = false;
+          }, 1000);
+        }
       }, 500);
     }
   }, true); // Capture phase - runs before bot's handler
