@@ -17,19 +17,24 @@ function setupBotToggle() {
     return;
   }
 
-  // Track chat state
+  // Track chat state and prevent infinite loops
   let chatIsOpen = false;
+  let isProcessingClick = false;
+  let lastClickTime = 0;
+  const CLICK_DEBOUNCE_MS = 300; // Prevent rapid clicks
 
-  // Find the bot button
+  // Find the bot button (the floating bubble button)
   const findBotButton = () => {
-    // Find button that's fixed and in bottom-right area
+    // Find button that's fixed and in bottom-right area (the bubble)
     const buttons = container.querySelectorAll('button');
     for (const btn of buttons) {
       const rect = btn.getBoundingClientRect();
       const style = window.getComputedStyle(btn);
-      // Button should be visible and positioned fixed
+      // Button should be visible, positioned fixed, and in bottom-right
       if (rect.width > 0 && rect.height > 0 && 
-          (style.position === 'fixed' || rect.bottom > window.innerHeight - 100)) {
+          style.position === 'fixed' &&
+          rect.bottom > window.innerHeight - 100 &&
+          rect.right > window.innerWidth - 100) {
         return btn;
       }
     }
@@ -38,7 +43,7 @@ function setupBotToggle() {
 
   // Find the chat panel
   const findChatPanel = () => {
-    // Look for panel-like elements (not the button)
+    // Look for panel-like elements (not buttons)
     const allElements = container.querySelectorAll('*');
     for (const el of allElements) {
       if (el.tagName === 'BUTTON') continue;
@@ -46,10 +51,11 @@ function setupBotToggle() {
       const rect = el.getBoundingClientRect();
       const style = window.getComputedStyle(el);
       
-      // Panel should be visible, have width/height, and be positioned
-      if (rect.width > 200 && rect.height > 200 && 
+      // Panel should be visible, have significant width/height, and be positioned
+      if (rect.width > 300 && rect.height > 400 && 
           style.display !== 'none' && 
           style.visibility !== 'hidden' &&
+          style.opacity !== '0' &&
           (style.position === 'fixed' || style.position === 'absolute')) {
         return el;
       }
@@ -57,16 +63,58 @@ function setupBotToggle() {
     return null;
   };
 
+  // Find the close button (X button in panel header)
+  const findCloseButton = () => {
+    const closeSelectors = [
+      'button[aria-label*="close" i]',
+      'button[aria-label*="Close" i]',
+      'button[aria-label*="CLOSE" i]',
+      '[class*="close" i]:not([class*="button"])',
+    ];
+
+    for (const selector of closeSelectors) {
+      try {
+        const btn = container.querySelector(selector);
+        if (btn && btn.tagName === 'BUTTON') {
+          const rect = btn.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            return btn;
+          }
+        }
+      } catch (e) {
+        // Invalid selector, skip
+      }
+    }
+
+    // Fallback: look for button with X icon (SVG path with "M" commands typical of X)
+    const allButtons = container.querySelectorAll('button');
+    for (const btn of allButtons) {
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        const paths = svg.querySelectorAll('path');
+        // X icon usually has 2 paths with line commands
+        if (paths.length >= 2) {
+          const pathData = Array.from(paths).map(p => p.getAttribute('d') || '').join('');
+          // Check for line patterns typical of X (M...L... or similar)
+          if (pathData.includes('M') && (pathData.includes('L') || pathData.includes('l'))) {
+            // Make sure it's not the main bubble button
+            const rect = btn.getBoundingClientRect();
+            if (rect.width < 100 && rect.height < 100) { // Close button is smaller
+              return btn;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
   // Check if chat is currently open
   const checkChatState = () => {
     const panel = findChatPanel();
     const wasOpen = chatIsOpen;
-    chatIsOpen = panel && panel.getBoundingClientRect().width > 200;
-    
-    if (wasOpen !== chatIsOpen) {
-      console.log('🤖 RAG Toggle: Chat state changed to', chatIsOpen ? 'OPEN' : 'CLOSED');
-    }
-    
+    chatIsOpen = panel && panel.getBoundingClientRect().width > 300;
     return chatIsOpen;
   };
 
@@ -84,71 +132,75 @@ function setupBotToggle() {
 
   console.log('🤖 RAG Toggle: Setting up toggle functionality');
 
-  // Use MutationObserver to track panel visibility
-  const observer = new MutationObserver(() => {
-    checkChatState();
-  });
-
-  observer.observe(container, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['style', 'class']
-  });
-
   // Initial state check
   setTimeout(() => {
     checkChatState();
-  }, 500);
+  }, 1000);
 
   // Add toggle handler - intercept click before bot's handler
   button.addEventListener('click', (e) => {
-    // Check current state before bot's handler runs
+    // Debounce rapid clicks
+    const now = Date.now();
+    if (now - lastClickTime < CLICK_DEBOUNCE_MS) {
+      console.log('🤖 RAG Toggle: Click debounced');
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    lastClickTime = now;
+
+    // Prevent infinite loops
+    if (isProcessingClick) {
+      console.log('🤖 RAG Toggle: Already processing click, ignoring');
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+
+    // Check current state
     const currentlyOpen = checkChatState();
-    
-    console.log('🤖 RAG Toggle: Button clicked, chat is currently', currentlyOpen ? 'OPEN' : 'CLOSED');
+    console.log('🤖 RAG Toggle: Button clicked, chat is', currentlyOpen ? 'OPEN' : 'CLOSED');
 
     if (currentlyOpen) {
       // Chat is open, we want to close it
-      // Stop the event from opening it again
+      isProcessingClick = true;
+      
+      // Stop the event from propagating to bot's handler
       e.stopImmediatePropagation();
+      e.preventDefault();
       
       // Find and click close button
       setTimeout(() => {
-        const closeSelectors = [
-          'button[aria-label*="close" i]',
-          'button[aria-label*="Close" i]',
-          '[class*="close" i]',
-          'button:has(svg[class*="x" i])',
-          'button:has(svg[class*="X" i])'
-        ];
-
-        let closeButton = null;
-        for (const selector of closeSelectors) {
-          try {
-            closeButton = container.querySelector(selector);
-            if (closeButton) break;
-          } catch (e) {
-            // Invalid selector, skip
-          }
-        }
-
+        const closeButton = findCloseButton();
+        
         if (closeButton) {
-          console.log('🤖 RAG Toggle: Clicking close button');
-          closeButton.click();
+          console.log('🤖 RAG Toggle: Found close button, clicking it');
+          // Create a new event to click the close button
+          const closeEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          closeButton.dispatchEvent(closeEvent);
         } else {
-          // Fallback: hide panel directly
+          // Fallback: hide panel directly via CSS
+          console.log('🤖 RAG Toggle: No close button found, hiding panel via CSS');
           const panel = findChatPanel();
           if (panel) {
-            console.log('🤖 RAG Toggle: Hiding panel directly');
             panel.style.display = 'none';
             chatIsOpen = false;
           }
         }
-      }, 100);
+        
+        // Reset processing flag after a delay
+        setTimeout(() => {
+          isProcessingClick = false;
+        }, 500);
+      }, 50);
     } else {
       // Chat is closed, let bot's handler open it (don't prevent default)
       console.log('🤖 RAG Toggle: Chat is closed, allowing bot to open it');
+      // Don't prevent default - let bot handle opening
     }
   }, true); // Capture phase - runs before bot's handler
 
