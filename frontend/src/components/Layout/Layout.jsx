@@ -43,26 +43,64 @@ function setupBotToggle() {
     return null;
   };
 
-  // Find the chat panel
+  // Find the chat panel - use multiple strategies
   const findChatPanel = () => {
-    // Look for panel-like elements (not buttons)
+    // Strategy 1: Look for common chat panel classes/attributes
+    const commonSelectors = [
+      '[class*="panel" i]',
+      '[class*="chat" i]',
+      '[class*="modal" i]',
+      '[class*="dialog" i]',
+      '[role="dialog"]',
+      '[data-testid*="chat" i]',
+      '[data-testid*="panel" i]'
+    ];
+    
+    for (const selector of commonSelectors) {
+      try {
+        const el = container.querySelector(selector);
+        if (el && el.tagName !== 'BUTTON') {
+          const rect = el.getBoundingClientRect();
+          const style = window.getComputedStyle(el);
+          if (rect.width > 0 && rect.height > 0 && 
+              style.display !== 'none' && 
+              style.visibility !== 'hidden') {
+            console.log('🤖 RAG Toggle: Found panel via selector:', selector);
+            return el;
+          }
+        }
+      } catch (e) {
+        // Invalid selector
+      }
+    }
+    
+    // Strategy 2: Look for any large fixed/absolute element (not button)
     const allElements = container.querySelectorAll('*');
+    const candidates = [];
+    
     for (const el of allElements) {
       if (el.tagName === 'BUTTON') continue;
       
       const rect = el.getBoundingClientRect();
       const style = window.getComputedStyle(el);
       
-      // Panel should be visible, have significant width/height, and be positioned
-      // Lowered thresholds to catch panel even if it's still animating/rendering
-      if (rect.width > 200 && rect.height > 300 && 
+      // Any visible element with significant size that's positioned
+      if (rect.width > 150 && rect.height > 200 && 
           style.display !== 'none' && 
           style.visibility !== 'hidden' &&
-          parseFloat(style.opacity) > 0.1 && // Allow for fade-in animations
+          parseFloat(style.opacity) > 0.05 &&
           (style.position === 'fixed' || style.position === 'absolute')) {
-        return el;
+        candidates.push({ el, area: rect.width * rect.height });
       }
     }
+    
+    // Return the largest candidate (most likely to be the panel)
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => b.area - a.area);
+      console.log('🤖 RAG Toggle: Found panel via size search, area:', candidates[0].area);
+      return candidates[0].el;
+    }
+    
     return null;
   };
 
@@ -155,31 +193,58 @@ function setupBotToggle() {
     return null;
   };
 
-  // Check if chat is currently open
+  // Check if chat is currently open - use multiple detection methods
   const checkChatState = () => {
-    const panel = findChatPanel();
     const wasOpen = chatIsOpen;
+    
+    // Method 1: Find panel via DOM
+    const panel = findChatPanel();
     
     if (panel) {
       const rect = panel.getBoundingClientRect();
       const style = window.getComputedStyle(panel);
-      // Check multiple conditions to determine if panel is open
-      const isVisible = rect.width > 200 && 
-                       rect.height > 300 && 
+      
+      // Panel is open if it's visible and has meaningful size
+      const isVisible = rect.width > 150 && 
+                       rect.height > 200 && 
                        style.display !== 'none' && 
                        style.visibility !== 'hidden' &&
-                       parseFloat(style.opacity) > 0.1;
+                       parseFloat(style.opacity) > 0.05;
       
       chatIsOpen = isVisible;
       
-      // Debug logging
       if (wasOpen !== chatIsOpen) {
         console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
-        console.log('🤖 RAG Toggle: Panel rect:', { width: rect.width, height: rect.height });
-        console.log('🤖 RAG Toggle: Panel style:', { display: style.display, visibility: style.visibility, opacity: style.opacity });
+        console.log('🤖 RAG Toggle: Panel found - rect:', { width: Math.round(rect.width), height: Math.round(rect.height) });
+        console.log('🤖 RAG Toggle: Panel style:', { display: style.display, visibility: style.visibility, opacity: style.opacity, position: style.position });
       }
     } else {
-      chatIsOpen = false;
+      // Method 2: Check if bot's internal state says it's open
+      // Look for any indication in the DOM that chat is open
+      const containerChildren = container.children;
+      if (containerChildren.length > 0) {
+        // Check if there are multiple children (button + panel)
+        const hasMultipleChildren = containerChildren.length > 1;
+        // Check if any child is large enough to be a panel
+        let foundLargeChild = false;
+        for (const child of containerChildren) {
+          if (child.tagName !== 'BUTTON') {
+            const rect = child.getBoundingClientRect();
+            if (rect.width > 150 && rect.height > 200) {
+              foundLargeChild = true;
+              break;
+            }
+          }
+        }
+        chatIsOpen = hasMultipleChildren && foundLargeChild;
+      } else {
+        chatIsOpen = false;
+      }
+      
+      if (wasOpen !== chatIsOpen) {
+        console.log('🤖 RAG Toggle: Chat state changed (no panel found):', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
+        console.log('🤖 RAG Toggle: Container children:', containerChildren.length);
+      }
     }
     
     return chatIsOpen;
@@ -688,4 +753,5 @@ const Layout = ({ children }) => {
 };
 
 export default Layout;
+
 
