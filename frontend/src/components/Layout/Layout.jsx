@@ -193,52 +193,46 @@ function setupBotToggle() {
     return null;
   };
 
-  // Check if chat is currently open - use multiple detection methods
+  // Check if chat is currently open - CRITICAL: must check if panel is actually visible, not just exists
   const checkChatState = () => {
     const wasOpen = chatIsOpen;
     
-    // Method 1: Check container children - if there are 2+ children, panel is likely open
-    const containerChildren = Array.from(container.children);
-    const nonButtonChildren = containerChildren.filter(child => child.tagName !== 'BUTTON');
-    
-    // Method 2: Find panel via DOM search
+    // Find panel element
     const panel = findChatPanel();
     
-    // Method 3: Check for any large visible element (not button)
-    // Use more lenient thresholds to catch panels during animation
-    let foundLargeElement = false;
-    for (const child of containerChildren) {
-      if (child.tagName !== 'BUTTON') {
-        const rect = child.getBoundingClientRect();
-        const style = window.getComputedStyle(child);
-        // More lenient: accept smaller sizes and lower opacity (during animation)
-        if (rect.width > 50 && rect.height > 100 && 
-            style.display !== 'none' && 
-            style.visibility !== 'hidden' &&
-            parseFloat(style.opacity) > 0.001) { // Very low threshold to catch fade-in
-          foundLargeElement = true;
-          break;
-        }
-      }
+    if (!panel) {
+      // No panel found = closed
+      chatIsOpen = false;
+      return false;
     }
     
-    // Method 4: Check if container has significant innerHTML (panel is being rendered)
-    const hasSignificantContent = container.innerHTML.length > 5000; // Panel adds significant HTML
+    // CRITICAL: Check if panel is actually visible (not blocked by CSS)
+    const style = window.getComputedStyle(panel);
+    const rect = panel.getBoundingClientRect();
     
-    // Panel is open if:
-    // - We found a panel via search, OR
-    // - There are non-button children AND (large element exists OR significant content)
-    const isOpen = (panel !== null) || (nonButtonChildren.length > 0 && (foundLargeElement || hasSignificantContent));
+    // Panel is open ONLY if:
+    // 1. display is NOT 'none'
+    // 2. visibility is NOT 'hidden'
+    // 3. opacity is > 0.1 (not fully transparent)
+    // 4. Has actual size (width and height > 0)
+    const isVisible = style.display !== 'none' && 
+                     style.visibility !== 'hidden' &&
+                     parseFloat(style.opacity) > 0.1 &&
+                     rect.width > 0 && 
+                     rect.height > 0;
     
-    chatIsOpen = isOpen;
+    chatIsOpen = isVisible;
     
     if (wasOpen !== chatIsOpen) {
       console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
-      console.log('🤖 RAG Toggle: Detection - Panel found:', !!panel, 'Non-button children:', nonButtonChildren.length, 'Large element:', foundLargeElement, 'Significant content:', hasSignificantContent);
-      if (panel) {
-        const rect = panel.getBoundingClientRect();
-        console.log('🤖 RAG Toggle: Panel rect:', { width: Math.round(rect.width), height: Math.round(rect.height) });
-      }
+      console.log('🤖 RAG Toggle: Panel visibility:', {
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        blocked: panelBlocked
+      });
     }
     
     return chatIsOpen;
@@ -441,24 +435,44 @@ function setupBotToggle() {
       // Chat is closed, user wants to open it
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
       
-      // Unblock the panel - allow it to show
+      // CRITICAL: Don't prevent bot's handler - let it open the panel first
+      // Then we'll unblock it if needed
+      
+      // Set flag to allow opening
       panelBlocked = false;
-      setPanelVisibility(true);
       
-      // Let bot's handler also try to open it (in case it needs to do initialization)
-      // Don't prevent default or stop propagation
-      
-      // Verify it opened after a moment
+      // Wait a moment for bot to try opening, then unblock
       setTimeout(() => {
-        const opened = checkChatState();
-        if (opened) {
-          console.log('✅ RAG Toggle: Chat opened successfully');
+        // Refresh panel element
+        panelElement = findChatPanel();
+        
+        if (panelElement) {
+          // Unblock the panel - remove blocking styles
+          panelElement.style.removeProperty('display');
+          panelElement.style.removeProperty('visibility');
+          panelElement.style.removeProperty('opacity');
+          console.log('🤖 RAG Toggle: Unblocked panel, allowing it to show');
         } else {
-          console.log('⚠️ RAG Toggle: Chat not open, ensuring visibility');
-          // Force show if still not visible
-          setPanelVisibility(true);
+          console.log('⚠️ RAG Toggle: Panel not found yet, bot may still be initializing');
         }
-      }, 200);
+        
+        // Verify it opened after another moment
+        setTimeout(() => {
+          const opened = checkChatState();
+          if (opened) {
+            console.log('✅ RAG Toggle: Chat opened successfully');
+          } else {
+            console.log('⚠️ RAG Toggle: Chat still not visible, trying to find and unblock');
+            // Try to find and unblock again
+            panelElement = findChatPanel();
+            if (panelElement) {
+              panelElement.style.removeProperty('display');
+              panelElement.style.removeProperty('visibility');
+              panelElement.style.removeProperty('opacity');
+            }
+          }
+        }, 300);
+      }, 100);
     }
   }, true); // Capture phase - runs before bot's handler
 
