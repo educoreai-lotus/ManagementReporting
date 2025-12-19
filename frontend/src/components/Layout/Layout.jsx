@@ -54,10 +54,11 @@ function setupBotToggle() {
       const style = window.getComputedStyle(el);
       
       // Panel should be visible, have significant width/height, and be positioned
-      if (rect.width > 300 && rect.height > 400 && 
+      // Lowered thresholds to catch panel even if it's still animating/rendering
+      if (rect.width > 200 && rect.height > 300 && 
           style.display !== 'none' && 
           style.visibility !== 'hidden' &&
-          style.opacity !== '0' &&
+          parseFloat(style.opacity) > 0.1 && // Allow for fade-in animations
           (style.position === 'fixed' || style.position === 'absolute')) {
         return el;
       }
@@ -158,7 +159,29 @@ function setupBotToggle() {
   const checkChatState = () => {
     const panel = findChatPanel();
     const wasOpen = chatIsOpen;
-    chatIsOpen = panel && panel.getBoundingClientRect().width > 300;
+    
+    if (panel) {
+      const rect = panel.getBoundingClientRect();
+      const style = window.getComputedStyle(panel);
+      // Check multiple conditions to determine if panel is open
+      const isVisible = rect.width > 200 && 
+                       rect.height > 300 && 
+                       style.display !== 'none' && 
+                       style.visibility !== 'hidden' &&
+                       parseFloat(style.opacity) > 0.1;
+      
+      chatIsOpen = isVisible;
+      
+      // Debug logging
+      if (wasOpen !== chatIsOpen) {
+        console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
+        console.log('🤖 RAG Toggle: Panel rect:', { width: rect.width, height: rect.height });
+        console.log('🤖 RAG Toggle: Panel style:', { display: style.display, visibility: style.visibility, opacity: style.opacity });
+      }
+    } else {
+      chatIsOpen = false;
+    }
+    
     return chatIsOpen;
   };
 
@@ -370,16 +393,33 @@ function setupBotToggle() {
       // The userInitiatedOpen flag will prevent the observer from closing it
       // (only if initialLoadComplete is true, which it should be after 2 seconds)
       
-      // Don't set isProcessingClick here - we want bot to handle opening naturally
-      // Just verify it opened after a moment
+      // Verify it opened after delays (check multiple times as panel may animate in)
       setTimeout(() => {
         const opened = checkChatState();
         if (opened) {
-          console.log('✅ RAG Toggle: Chat opened successfully');
+          console.log('✅ RAG Toggle: Chat opened successfully (first check)');
         } else {
-          console.log('⚠️ RAG Toggle: Chat did not open, bot may need more time');
+          console.log('🤖 RAG Toggle: Chat not open yet (first check), waiting...');
+          // Check again after more time (panel may be animating)
+          setTimeout(() => {
+            const opened2 = checkChatState();
+            if (opened2) {
+              console.log('✅ RAG Toggle: Chat opened successfully (second check)');
+            } else {
+              console.log('⚠️ RAG Toggle: Chat still not open (second check), may need more time');
+              // Final check
+              setTimeout(() => {
+                const opened3 = checkChatState();
+                if (opened3) {
+                  console.log('✅ RAG Toggle: Chat opened successfully (final check)');
+                } else {
+                  console.log('❌ RAG Toggle: Chat did not open after multiple checks');
+                }
+              }, 1000);
+            }
+          }, 500);
         }
-      }, 800);
+      }, 300);
     }
   }, true); // Capture phase - runs before bot's handler
 
