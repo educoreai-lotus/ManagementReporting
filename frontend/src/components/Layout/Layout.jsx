@@ -258,9 +258,10 @@ function setupBotToggle() {
 
   console.log('🤖 RAG Toggle: Setting up toggle functionality');
 
-  // Use MutationObserver to track panel visibility and prevent auto-open
-  // But ONLY on initial load, not during user interactions
+  // Use MutationObserver ONLY to track state changes, NOT to close panels
+  // We'll close the panel once on initial load, then let user control it
   let initialLoadComplete = false;
+  let autoCloseAttempted = false; // Track if we already tried to close on initial load
   setTimeout(() => {
     initialLoadComplete = true;
     console.log('🤖 RAG Toggle: Initial load complete, will allow user-initiated opens');
@@ -278,34 +279,52 @@ function setupBotToggle() {
       return; // Exit early, don't process auto-open prevention
     }
     
-    // Only prevent auto-open if:
+    // CRITICAL: Never try to close if we already attempted once
+    // This prevents infinite loops
+    if (autoCloseAttempted) {
+      chatIsOpen = nowOpen;
+      return; // Exit early, we already tried to close
+    }
+    
+    // Only prevent auto-open ONCE if:
     // 1. Still in initial load phase (first 2 seconds)
     // 2. Panel just opened (was closed, now open)
     // 3. User didn't initiate it (no user click) - already checked above
     // 4. We're not currently processing a user click
-    // 5. We haven't just prevented an auto-open (avoid loops)
-    if (!initialLoadComplete && !wasOpen && nowOpen && !isProcessingClick && !autoOpenPrevented) {
-      console.log('🤖 RAG Toggle: Panel auto-opened during initial load, closing it');
-      autoOpenPrevented = true;
+    // 5. We haven't already attempted to close (avoid loops)
+    if (!initialLoadComplete && !wasOpen && nowOpen && !isProcessingClick) {
+      console.log('🤖 RAG Toggle: Panel auto-opened during initial load, closing it (ONE TIME ONLY)');
+      autoCloseAttempted = true; // Mark that we tried, never try again
       
       setTimeout(() => {
         const closeButton = findCloseButton();
         if (closeButton) {
           closeButton.click();
+          // Verify it closed
+          setTimeout(() => {
+            if (checkChatState()) {
+              // Still open, try CSS fallback
+              console.log('🤖 RAG Toggle: Close button click failed, using CSS fallback');
+              const panel = findChatPanel();
+              if (panel) {
+                panel.style.setProperty('display', 'none', 'important');
+                panel.style.setProperty('visibility', 'hidden', 'important');
+                panel.style.setProperty('opacity', '0', 'important');
+                chatIsOpen = false;
+              }
+            }
+          }, 500);
         } else {
+          // No close button, use CSS fallback immediately
           const panel = findChatPanel();
           if (panel) {
-            panel.style.display = 'none';
-            panel.style.visibility = 'hidden';
-            panel.style.opacity = '0';
+            panel.style.setProperty('display', 'none', 'important');
+            panel.style.setProperty('visibility', 'hidden', 'important');
+            panel.style.setProperty('opacity', '0', 'important');
             chatIsOpen = false;
           }
         }
-        // Reset flag after a delay
-        setTimeout(() => {
-          autoOpenPrevented = false;
-        }, 1000);
-      }, 100);
+      }, 200);
     }
     
     // Update state
@@ -332,21 +351,40 @@ function setupBotToggle() {
     attributeFilter: ['style', 'class']
   });
 
-  // Initial state check - close if auto-opened
+  // Initial state check - close if auto-opened (ONE TIME ONLY)
+  // This is a backup in case observer didn't catch it
   setTimeout(() => {
-    const initialState = checkChatState();
-    if (initialState) {
-      console.log('🤖 RAG Toggle: Panel was auto-opened on load, closing it');
-      const closeButton = findCloseButton();
-      if (closeButton) {
-        setTimeout(() => closeButton.click(), 200);
-      } else {
-        const panel = findChatPanel();
-        if (panel) {
-          panel.style.display = 'none';
-          panel.style.visibility = 'hidden';
-          panel.style.opacity = '0';
-          chatIsOpen = false;
+    if (!autoCloseAttempted) {
+      const initialState = checkChatState();
+      if (initialState) {
+        console.log('🤖 RAG Toggle: Panel was auto-opened on load, closing it (backup check)');
+        autoCloseAttempted = true; // Mark that we tried
+        const closeButton = findCloseButton();
+        if (closeButton) {
+          setTimeout(() => {
+            closeButton.click();
+            // Verify it closed
+            setTimeout(() => {
+              if (checkChatState()) {
+                // Still open, try CSS fallback
+                const panel = findChatPanel();
+                if (panel) {
+                  panel.style.setProperty('display', 'none', 'important');
+                  panel.style.setProperty('visibility', 'hidden', 'important');
+                  panel.style.setProperty('opacity', '0', 'important');
+                  chatIsOpen = false;
+                }
+              }
+            }, 500);
+          }, 200);
+        } else {
+          const panel = findChatPanel();
+          if (panel) {
+            panel.style.setProperty('display', 'none', 'important');
+            panel.style.setProperty('visibility', 'hidden', 'important');
+            panel.style.setProperty('opacity', '0', 'important');
+            chatIsOpen = false;
+          }
         }
       }
     }
@@ -424,13 +462,15 @@ function setupBotToggle() {
           setTimeout(() => {
             const stillOpen = checkChatState();
             if (stillOpen) {
-              console.log('🤖 RAG Toggle: Panel still open, trying CSS fallback');
+              console.log('🤖 RAG Toggle: Panel still open, trying CSS fallback with !important');
               const panel = findChatPanel();
               if (panel) {
-                panel.style.display = 'none';
-                panel.style.visibility = 'hidden';
-                panel.style.opacity = '0';
+                // Use setProperty with 'important' to override bot's styles
+                panel.style.setProperty('display', 'none', 'important');
+                panel.style.setProperty('visibility', 'hidden', 'important');
+                panel.style.setProperty('opacity', '0', 'important');
                 chatIsOpen = false;
+                console.log('🤖 RAG Toggle: CSS fallback applied');
               }
             } else {
               console.log('🤖 RAG Toggle: Panel closed successfully');
@@ -438,13 +478,13 @@ function setupBotToggle() {
             isProcessingClick = false;
           }, 300);
         } else {
-          // Fallback: hide panel directly via CSS
-          console.log('🤖 RAG Toggle: No close button found, hiding panel via CSS');
+          // Fallback: hide panel directly via CSS with !important
+          console.log('🤖 RAG Toggle: No close button found, hiding panel via CSS with !important');
           const panel = findChatPanel();
           if (panel) {
-            panel.style.display = 'none';
-            panel.style.visibility = 'hidden';
-            panel.style.opacity = '0';
+            panel.style.setProperty('display', 'none', 'important');
+            panel.style.setProperty('visibility', 'hidden', 'important');
+            panel.style.setProperty('opacity', '0', 'important');
             chatIsOpen = false;
           }
           isProcessingClick = false;
