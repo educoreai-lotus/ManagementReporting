@@ -441,42 +441,55 @@ function setupBotToggle() {
       panelBlocked = false;
       isProcessingClick = true; // Prevent observer from interfering
       
-      // Don't prevent bot's handler - let it open the panel
-      // Don't stop propagation - let bot handle the click
+      // Find panel and unblock it immediately
+      // Don't wait for bot - we control the visibility
+      panelElement = findChatPanel();
       
-      // Wait a moment for bot to try opening, then unblock
-      setTimeout(() => {
-        // Refresh panel element
-        panelElement = findChatPanel();
-        
-        if (panelElement) {
-          // Unblock the panel - remove blocking styles
-          panelElement.style.removeProperty('display');
-          panelElement.style.removeProperty('visibility');
-          panelElement.style.removeProperty('opacity');
-          console.log('🤖 RAG Toggle: Unblocked panel, allowing it to show');
-        } else {
-          console.log('⚠️ RAG Toggle: Panel not found yet, bot may still be initializing');
-        }
-        
-        // Verify it opened after another moment
-        setTimeout(() => {
-          const opened = checkChatState();
-          if (opened) {
-            console.log('✅ RAG Toggle: Chat opened successfully');
-          } else {
-            console.log('⚠️ RAG Toggle: Chat still not visible, trying to find and unblock');
-            // Try to find and unblock again
-            panelElement = findChatPanel();
-            if (panelElement) {
+      if (panelElement) {
+        // Unblock the panel - remove blocking styles immediately
+        panelElement.style.removeProperty('display');
+        panelElement.style.removeProperty('visibility');
+        panelElement.style.removeProperty('opacity');
+        console.log('🤖 RAG Toggle: Unblocked panel immediately');
+      } else {
+        // Panel not found yet - try to find it in container children
+        const containerChildren = Array.from(container.children);
+        for (const child of containerChildren) {
+          if (child.tagName !== 'BUTTON') {
+            const rect = child.getBoundingClientRect();
+            if (rect.width > 200 || rect.height > 300) {
+              // Found potential panel
+              panelElement = child;
               panelElement.style.removeProperty('display');
               panelElement.style.removeProperty('visibility');
               panelElement.style.removeProperty('opacity');
+              console.log('🤖 RAG Toggle: Found and unblocked panel from container children');
+              break;
             }
           }
-          isProcessingClick = false; // Allow observer to work again
-        }, 500); // Longer delay to ensure bot finished opening
-      }, 150); // Wait for bot to start opening
+        }
+      }
+      
+      // Also let bot's handler run (in case it needs to do something)
+      // Don't prevent default or stop propagation
+      
+      // Verify it opened after a moment
+      setTimeout(() => {
+        const opened = checkChatState();
+        if (opened) {
+          console.log('✅ RAG Toggle: Chat opened successfully');
+        } else {
+          console.log('⚠️ RAG Toggle: Chat still not visible, trying again');
+          // Try one more time
+          panelElement = findChatPanel();
+          if (panelElement) {
+            panelElement.style.removeProperty('display');
+            panelElement.style.removeProperty('visibility');
+            panelElement.style.removeProperty('opacity');
+          }
+        }
+        isProcessingClick = false; // Allow observer to work again
+      }, 300);
     }
   }, true); // Capture phase - runs before bot's handler
 
