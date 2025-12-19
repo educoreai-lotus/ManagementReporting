@@ -3,6 +3,159 @@ import Header from './Header';
 import { useTheme } from '../../context/ThemeContext';
 import { debugRAGBot } from '../../utils/ragBotDebug';
 
+/**
+ * Setup toggle functionality for RAG bot button
+ * When clicking the bubble button:
+ * - If chat is open → close it
+ * - If chat is closed → open it
+ */
+function setupBotToggle() {
+  const container = document.getElementById('edu-bot-container');
+  if (!container) {
+    console.log('🤖 RAG Toggle: Container not found, retrying...');
+    setTimeout(setupBotToggle, 500);
+    return;
+  }
+
+  // Track chat state
+  let chatIsOpen = false;
+
+  // Find the bot button
+  const findBotButton = () => {
+    // Find button that's fixed and in bottom-right area
+    const buttons = container.querySelectorAll('button');
+    for (const btn of buttons) {
+      const rect = btn.getBoundingClientRect();
+      const style = window.getComputedStyle(btn);
+      // Button should be visible and positioned fixed
+      if (rect.width > 0 && rect.height > 0 && 
+          (style.position === 'fixed' || rect.bottom > window.innerHeight - 100)) {
+        return btn;
+      }
+    }
+    return null;
+  };
+
+  // Find the chat panel
+  const findChatPanel = () => {
+    // Look for panel-like elements (not the button)
+    const allElements = container.querySelectorAll('*');
+    for (const el of allElements) {
+      if (el.tagName === 'BUTTON') continue;
+      
+      const rect = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      
+      // Panel should be visible, have width/height, and be positioned
+      if (rect.width > 200 && rect.height > 200 && 
+          style.display !== 'none' && 
+          style.visibility !== 'hidden' &&
+          (style.position === 'fixed' || style.position === 'absolute')) {
+        return el;
+      }
+    }
+    return null;
+  };
+
+  // Check if chat is currently open
+  const checkChatState = () => {
+    const panel = findChatPanel();
+    const wasOpen = chatIsOpen;
+    chatIsOpen = panel && panel.getBoundingClientRect().width > 200;
+    
+    if (wasOpen !== chatIsOpen) {
+      console.log('🤖 RAG Toggle: Chat state changed to', chatIsOpen ? 'OPEN' : 'CLOSED');
+    }
+    
+    return chatIsOpen;
+  };
+
+  const button = findBotButton();
+  if (!button) {
+    console.log('🤖 RAG Toggle: Button not found yet, retrying...');
+    setTimeout(setupBotToggle, 500);
+    return;
+  }
+
+  // Check if handler already attached
+  if (button.dataset.toggleHandlerAttached === 'true') {
+    return;
+  }
+
+  console.log('🤖 RAG Toggle: Setting up toggle functionality');
+
+  // Use MutationObserver to track panel visibility
+  const observer = new MutationObserver(() => {
+    checkChatState();
+  });
+
+  observer.observe(container, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+
+  // Initial state check
+  setTimeout(() => {
+    checkChatState();
+  }, 500);
+
+  // Add toggle handler - intercept click before bot's handler
+  button.addEventListener('click', (e) => {
+    // Check current state before bot's handler runs
+    const currentlyOpen = checkChatState();
+    
+    console.log('🤖 RAG Toggle: Button clicked, chat is currently', currentlyOpen ? 'OPEN' : 'CLOSED');
+
+    if (currentlyOpen) {
+      // Chat is open, we want to close it
+      // Stop the event from opening it again
+      e.stopImmediatePropagation();
+      
+      // Find and click close button
+      setTimeout(() => {
+        const closeSelectors = [
+          'button[aria-label*="close" i]',
+          'button[aria-label*="Close" i]',
+          '[class*="close" i]',
+          'button:has(svg[class*="x" i])',
+          'button:has(svg[class*="X" i])'
+        ];
+
+        let closeButton = null;
+        for (const selector of closeSelectors) {
+          try {
+            closeButton = container.querySelector(selector);
+            if (closeButton) break;
+          } catch (e) {
+            // Invalid selector, skip
+          }
+        }
+
+        if (closeButton) {
+          console.log('🤖 RAG Toggle: Clicking close button');
+          closeButton.click();
+        } else {
+          // Fallback: hide panel directly
+          const panel = findChatPanel();
+          if (panel) {
+            console.log('🤖 RAG Toggle: Hiding panel directly');
+            panel.style.display = 'none';
+            chatIsOpen = false;
+          }
+        }
+      }, 100);
+    } else {
+      // Chat is closed, let bot's handler open it (don't prevent default)
+      console.log('🤖 RAG Toggle: Chat is closed, allowing bot to open it');
+    }
+  }, true); // Capture phase - runs before bot's handler
+
+  button.dataset.toggleHandlerAttached = 'true';
+  console.log('✅ RAG Toggle: Toggle functionality attached');
+}
+
 const Layout = ({ children }) => {
   const { theme } = useTheme();
   const botInitialized = useRef(false);
@@ -155,6 +308,12 @@ const Layout = ({ children }) => {
               window.debugRAGBot = debugRAGBot;
               console.log('💡 RAG: Debug helper available - call window.debugRAGBot() in console');
             }
+
+            // Setup toggle functionality for bot button
+            // Wait a bit for bot to fully render, then attach toggle handler
+            setTimeout(() => {
+              setupBotToggle();
+            }, 1000);
 
             // Check DOM after delays to see if bot rendered
           setTimeout(() => {
