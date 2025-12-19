@@ -297,14 +297,16 @@ function setupBotToggle() {
   };
 
   // Use MutationObserver to continuously block auto-opens
+  // BUT: Only block if panelBlocked is true (user hasn't clicked to open)
   const observer = new MutationObserver(() => {
     // Update panel element cache if needed
     if (!panelElement) {
       panelElement = findChatPanel();
     }
     
-    // If panel exists and we want it blocked, block it
-    if (panelElement && panelBlocked) {
+    // CRITICAL: Only block if panelBlocked is true AND we're not processing a user click
+    // This prevents blocking when user clicked to open
+    if (panelElement && panelBlocked && !isProcessingClick) {
       // Check if bot tried to show it (display is not 'none')
       const style = window.getComputedStyle(panelElement);
       if (style.display !== 'none' && style.visibility !== 'hidden') {
@@ -435,11 +437,12 @@ function setupBotToggle() {
       // Chat is closed, user wants to open it
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
       
-      // CRITICAL: Don't prevent bot's handler - let it open the panel first
-      // Then we'll unblock it if needed
-      
-      // Set flag to allow opening
+      // CRITICAL: Set flag FIRST to prevent observer from blocking
       panelBlocked = false;
+      isProcessingClick = true; // Prevent observer from interfering
+      
+      // Don't prevent bot's handler - let it open the panel
+      // Don't stop propagation - let bot handle the click
       
       // Wait a moment for bot to try opening, then unblock
       setTimeout(() => {
@@ -471,8 +474,9 @@ function setupBotToggle() {
               panelElement.style.removeProperty('opacity');
             }
           }
-        }, 300);
-      }, 100);
+          isProcessingClick = false; // Allow observer to work again
+        }, 500); // Longer delay to ensure bot finished opening
+      }, 150); // Wait for bot to start opening
     }
   }, true); // Capture phase - runs before bot's handler
 
