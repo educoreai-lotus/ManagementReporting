@@ -197,53 +197,42 @@ function setupBotToggle() {
   const checkChatState = () => {
     const wasOpen = chatIsOpen;
     
-    // Method 1: Find panel via DOM
+    // Method 1: Check container children - if there are 2+ children, panel is likely open
+    const containerChildren = Array.from(container.children);
+    const nonButtonChildren = containerChildren.filter(child => child.tagName !== 'BUTTON');
+    
+    // Method 2: Find panel via DOM search
     const panel = findChatPanel();
     
-    if (panel) {
-      const rect = panel.getBoundingClientRect();
-      const style = window.getComputedStyle(panel);
-      
-      // Panel is open if it's visible and has meaningful size
-      const isVisible = rect.width > 150 && 
-                       rect.height > 200 && 
-                       style.display !== 'none' && 
-                       style.visibility !== 'hidden' &&
-                       parseFloat(style.opacity) > 0.05;
-      
-      chatIsOpen = isVisible;
-      
-      if (wasOpen !== chatIsOpen) {
-        console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
-        console.log('🤖 RAG Toggle: Panel found - rect:', { width: Math.round(rect.width), height: Math.round(rect.height) });
-        console.log('🤖 RAG Toggle: Panel style:', { display: style.display, visibility: style.visibility, opacity: style.opacity, position: style.position });
-      }
-    } else {
-      // Method 2: Check if bot's internal state says it's open
-      // Look for any indication in the DOM that chat is open
-      const containerChildren = container.children;
-      if (containerChildren.length > 0) {
-        // Check if there are multiple children (button + panel)
-        const hasMultipleChildren = containerChildren.length > 1;
-        // Check if any child is large enough to be a panel
-        let foundLargeChild = false;
-        for (const child of containerChildren) {
-          if (child.tagName !== 'BUTTON') {
-            const rect = child.getBoundingClientRect();
-            if (rect.width > 150 && rect.height > 200) {
-              foundLargeChild = true;
-              break;
-            }
-          }
+    // Method 3: Check for any large visible element (not button)
+    let foundLargeElement = false;
+    for (const child of containerChildren) {
+      if (child.tagName !== 'BUTTON') {
+        const rect = child.getBoundingClientRect();
+        const style = window.getComputedStyle(child);
+        if (rect.width > 100 && rect.height > 150 && 
+            style.display !== 'none' && 
+            style.visibility !== 'hidden' &&
+            parseFloat(style.opacity) > 0.01) {
+          foundLargeElement = true;
+          break;
         }
-        chatIsOpen = hasMultipleChildren && foundLargeChild;
-      } else {
-        chatIsOpen = false;
       }
-      
-      if (wasOpen !== chatIsOpen) {
-        console.log('🤖 RAG Toggle: Chat state changed (no panel found):', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
-        console.log('🤖 RAG Toggle: Container children:', containerChildren.length);
+    }
+    
+    // Panel is open if:
+    // - We found a panel via search, OR
+    // - There are non-button children AND a large element exists
+    const isOpen = (panel !== null) || (nonButtonChildren.length > 0 && foundLargeElement);
+    
+    chatIsOpen = isOpen;
+    
+    if (wasOpen !== chatIsOpen) {
+      console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
+      console.log('🤖 RAG Toggle: Detection - Panel found:', !!panel, 'Non-button children:', nonButtonChildren.length, 'Large element:', foundLargeElement);
+      if (panel) {
+        const rect = panel.getBoundingClientRect();
+        console.log('🤖 RAG Toggle: Panel rect:', { width: Math.round(rect.width), height: Math.round(rect.height) });
       }
     }
     
