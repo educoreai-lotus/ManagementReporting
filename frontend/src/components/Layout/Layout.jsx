@@ -162,11 +162,54 @@ const Layout = ({ children }) => {
             console.log('🤖 RAG CHECK DOM (2s later):', containerCheck);
             console.log('🤖 RAG Container children:', containerCheck?.children.length || 0);
             console.log('🤖 RAG Container innerHTML length:', containerCheck?.innerHTML.length || 0);
-            console.log('🤖 RAG Container computed style:', window.getComputedStyle(containerCheck));
             
-            // Check for bot elements
-            const botElements = containerCheck?.querySelectorAll('*');
-            console.log('🤖 RAG Bot elements found:', botElements?.length || 0);
+            if (containerCheck) {
+              const style = window.getComputedStyle(containerCheck);
+              const rect = containerCheck.getBoundingClientRect();
+              console.log('🤖 RAG Container computed style:', {
+                display: style.display,
+                position: style.position,
+                zIndex: style.zIndex,
+                visibility: style.visibility,
+                opacity: style.opacity,
+                bottom: style.bottom,
+                right: style.right,
+                width: style.width,
+                height: style.height
+              });
+              console.log('🤖 RAG Container bounding rect:', {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+                bottom: rect.bottom,
+                right: rect.right,
+                visible: rect.width > 0 && rect.height > 0
+              });
+              
+              // Check for bot elements
+              const botElements = containerCheck.querySelectorAll('*');
+              console.log('🤖 RAG Bot elements found:', botElements.length);
+              
+              // Check first few elements for visibility
+              if (botElements.length > 0) {
+                Array.from(botElements).slice(0, 5).forEach((el, i) => {
+                  const elStyle = window.getComputedStyle(el);
+                  const elRect = el.getBoundingClientRect();
+                  console.log(`🤖 RAG Bot element ${i}:`, {
+                    tag: el.tagName,
+                    className: el.className,
+                    display: elStyle.display,
+                    visibility: elStyle.visibility,
+                    opacity: elStyle.opacity,
+                    position: elStyle.position,
+                    zIndex: elStyle.zIndex,
+                    visible: elRect.width > 0 && elRect.height > 0,
+                    rect: { x: elRect.x, y: elRect.y, width: elRect.width, height: elRect.height }
+                  });
+                });
+              }
+            }
           }, 2000);
 
           setTimeout(() => {
