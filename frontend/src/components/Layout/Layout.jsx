@@ -205,31 +205,36 @@ function setupBotToggle() {
     const panel = findChatPanel();
     
     // Method 3: Check for any large visible element (not button)
+    // Use more lenient thresholds to catch panels during animation
     let foundLargeElement = false;
     for (const child of containerChildren) {
       if (child.tagName !== 'BUTTON') {
         const rect = child.getBoundingClientRect();
         const style = window.getComputedStyle(child);
-        if (rect.width > 100 && rect.height > 150 && 
+        // More lenient: accept smaller sizes and lower opacity (during animation)
+        if (rect.width > 50 && rect.height > 100 && 
             style.display !== 'none' && 
             style.visibility !== 'hidden' &&
-            parseFloat(style.opacity) > 0.01) {
+            parseFloat(style.opacity) > 0.001) { // Very low threshold to catch fade-in
           foundLargeElement = true;
           break;
         }
       }
     }
     
+    // Method 4: Check if container has significant innerHTML (panel is being rendered)
+    const hasSignificantContent = container.innerHTML.length > 5000; // Panel adds significant HTML
+    
     // Panel is open if:
     // - We found a panel via search, OR
-    // - There are non-button children AND a large element exists
-    const isOpen = (panel !== null) || (nonButtonChildren.length > 0 && foundLargeElement);
+    // - There are non-button children AND (large element exists OR significant content)
+    const isOpen = (panel !== null) || (nonButtonChildren.length > 0 && (foundLargeElement || hasSignificantContent));
     
     chatIsOpen = isOpen;
     
     if (wasOpen !== chatIsOpen) {
       console.log('🤖 RAG Toggle: Chat state changed:', wasOpen ? 'OPEN' : 'CLOSED', '→', chatIsOpen ? 'OPEN' : 'CLOSED');
-      console.log('🤖 RAG Toggle: Detection - Panel found:', !!panel, 'Non-button children:', nonButtonChildren.length, 'Large element:', foundLargeElement);
+      console.log('🤖 RAG Toggle: Detection - Panel found:', !!panel, 'Non-button children:', nonButtonChildren.length, 'Large element:', foundLargeElement, 'Significant content:', hasSignificantContent);
       if (panel) {
         const rect = panel.getBoundingClientRect();
         console.log('🤖 RAG Toggle: Panel rect:', { width: Math.round(rect.width), height: Math.round(rect.height) });
@@ -265,13 +270,21 @@ function setupBotToggle() {
     const wasOpen = chatIsOpen;
     const nowOpen = checkChatState();
     
+    // CRITICAL: Never close if user initiated the open (even during initial load)
+    // This prevents the observer from interfering with user clicks
+    if (userInitiatedOpen) {
+      // User clicked to open - allow it and don't interfere
+      chatIsOpen = nowOpen;
+      return; // Exit early, don't process auto-open prevention
+    }
+    
     // Only prevent auto-open if:
     // 1. Still in initial load phase (first 2 seconds)
     // 2. Panel just opened (was closed, now open)
-    // 3. User didn't initiate it (no user click)
+    // 3. User didn't initiate it (no user click) - already checked above
     // 4. We're not currently processing a user click
     // 5. We haven't just prevented an auto-open (avoid loops)
-    if (!initialLoadComplete && !wasOpen && nowOpen && !userInitiatedOpen && !isProcessingClick && !autoOpenPrevented) {
+    if (!initialLoadComplete && !wasOpen && nowOpen && !isProcessingClick && !autoOpenPrevented) {
       console.log('🤖 RAG Toggle: Panel auto-opened during initial load, closing it');
       autoOpenPrevented = true;
       
@@ -308,7 +321,7 @@ function setupBotToggle() {
         } else {
           console.log('🤖 RAG Toggle: Chat closed before flag reset, keeping userInitiatedOpen');
         }
-      }, 1500); // Longer delay to ensure user-initiated opens complete
+      }, 2000); // Even longer delay to ensure user-initiated opens complete
     }
   });
 
@@ -439,13 +452,17 @@ function setupBotToggle() {
       }, 100); // Slightly longer delay to ensure bot's handler ran first
     } else {
       // Chat is closed, user wants to open it
+      // CRITICAL: Set flag BEFORE allowing bot to open (prevents observer from closing it)
       userInitiatedOpen = true;
       console.log('🤖 RAG Toggle: Chat is closed, user clicked to open it');
       console.log('🤖 RAG Toggle: Setting userInitiatedOpen=true, allowing bot to open');
       
+      // Also set initialLoadComplete to true immediately when user clicks
+      // This ensures observer won't interfere even if we're still in initial load phase
+      initialLoadComplete = true;
+      
       // Don't prevent default or stop propagation - let bot's handler open it
       // The userInitiatedOpen flag will prevent the observer from closing it
-      // (only if initialLoadComplete is true, which it should be after 2 seconds)
       
       // Verify it opened after delays (check multiple times as panel may animate in)
       setTimeout(() => {
@@ -468,6 +485,8 @@ function setupBotToggle() {
                   console.log('✅ RAG Toggle: Chat opened successfully (final check)');
                 } else {
                   console.log('❌ RAG Toggle: Chat did not open after multiple checks');
+                  // Reset flag if it didn't open (something went wrong)
+                  userInitiatedOpen = false;
                 }
               }, 1000);
             }
