@@ -16,7 +16,6 @@ import { securityConfig } from './config/security.js';
 import { rateLimiter } from './presentation/middleware/rateLimiter.js';
 import { initializeJobs } from './infrastructure/jobs/index.js';
 import runMigration from '../scripts/runMigration.js';
-import seedSqlFile from './infrastructure/seedSqlFile.js';
 import { registerService } from './registration/register.js';
 
 dotenv.config();
@@ -102,22 +101,6 @@ app.listen(PORT, () => {
       await runMigration();
     } catch (migrationErr) {
       console.error('[Startup] Migration error (non-fatal):', migrationErr.message);
-    }
-    
-    // Seed mock data from SQL file (versioned, one-time per version) - non-blocking
-    if (process.env.DATABASE_URL) {
-      try {
-        const result = await seedSqlFile();
-        if (result.applied) {
-          console.log('[Startup] ✅ SQL seed file applied successfully');
-        } else if (result.reason === 'already_applied') {
-          console.log('[Startup] ℹ️  SQL seed already applied for current version');
-        } else {
-          console.log(`[Startup] ℹ️  SQL seed skipped: ${result.reason}`);
-        }
-      } catch (seedErr) {
-        console.error('[Startup] SQL seed error (non-fatal):', seedErr.message);
-      }
     }
     
     // Test database connection on boot - non-blocking
