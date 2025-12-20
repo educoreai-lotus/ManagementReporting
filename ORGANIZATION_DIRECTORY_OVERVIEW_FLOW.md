@@ -54,49 +54,39 @@ let totalUsers = 0;
 for (const row of rows) {
   const companyKey = row.company_name || row.company_id;
   
-  // ספירת משתמשים מה-hierarchy
-  const userCount = this.countUsersFromHierarchy(row.hierarchy);
+  // ספירת משתמשים מ-company_size (לא מה-hierarchy)
+  const userCount = this.estimateUsersByCompanySize(row.company_size);
   totalUsers += userCount;
   orgUserMap.set(companyKey, userCount);
 }
 ```
 
-**איך `countUsersFromHierarchy()` עובד:**
+**איך `estimateUsersByCompanySize()` עובד:**
 ```javascript
-countUsersFromHierarchy(hierarchy) {
-  // מבנה ה-hierarchy:
-  // [
-  //   {
-  //     departments: [
-  //       {
-  //         teams: [
-  //           {
-  //             employees: [
-  //               { employee_id, name, role_type }
-  //             ]
-  //           }
-  //         ]
-  //       }
-  //     ]
-  //   }
-  // ]
-  
-  const seen = new Set(); // למניעת כפילויות
-  
-  for (const dept of hierarchy) {
-    for (const team of dept.teams) {
-      for (const emp of team.employees) {
-        const key = emp.employee_id || emp.name;
-        if (!seen.has(key)) {
-          seen.add(key);
-        }
-      }
-    }
+estimateUsersByCompanySize(size) {
+  if (!size) {
+    return 50; // Default fallback
   }
   
-  return seen.size; // מחזיר מספר משתמשים ייחודיים
+  // מיפוי של company_size לערכי משתמשים משוערים
+  const sizeMap = {
+    '1-10': 8,
+    '10-50': 30,
+    '50-200': 125,
+    '200-500': 350,
+    '500+': 650
+  };
+  
+  return sizeMap[size] || 50; // מחזיר מספר משתמשים משוער
 }
 ```
+
+**דוגמאות:**
+- `company_size = '1-10'` → 8 משתמשים
+- `company_size = '10-50'` → 30 משתמשים
+- `company_size = '50-200'` → 125 משתמשים
+- `company_size = '200-500'` → 350 משתמשים
+- `company_size = '500+'` → 650 משתמשים
 
 #### 2.2 חישוב Active Users
 ```javascript
@@ -121,20 +111,21 @@ const totalOrganizations = rows.length; // פשוט מספר ה-rows
 
 #### 2.4 חישוב Organizations Active
 ```javascript
+// ספירת ארגונים עם verification_status = 'verified' OR 'approved'
 const organizationsActive = rows.filter(
-  (row) => row.verification_status === 'verified'
+  (row) => row.verification_status === 'verified' || row.verification_status === 'approved'
 ).length;
 ```
 
 #### 2.5 בניית אובייקט Metrics
 ```javascript
 const metrics = {
-  totalUsers,              // סכום משתמשים מה-hierarchy
+  totalUsers,              // סכום משתמשים מ-company_size
   totalOrganizations,      // מספר ארגונים
   activeUsers,             // מ-kpis או הערכה
   usersByRole: {},         // ריק (אין נתונים ב-DB)
   usersByDepartment: {},   // ריק (לא מחושב כרגע)
-  organizationsActive      // מספר ארגונים מאומתים
+  organizationsActive      // מספר ארגונים עם status = 'verified' OR 'approved'
 };
 ```
 
@@ -336,10 +327,10 @@ const mainChart = new ChartData({
    ↓
 2. Calculate Metrics
    ↓
-   - countUsersFromHierarchy() → totalUsers
+   - estimateUsersByCompanySize(company_size) → totalUsers
    - kpis.active_users → activeUsers (או הערכה)
    - rows.length → totalOrganizations
-   - filter(verified) → organizationsActive
+   - filter(verified OR approved) → organizationsActive
    ↓
 3. Build Response
    ↓
@@ -374,9 +365,10 @@ const mainChart = new ChartData({
 - מציג רק נתונים רלוונטיים (30 הימים האחרונים)
 - אם אין נתונים מ-30 הימים, לוקח את כל הנתונים
 
-### 3. **countUsersFromHierarchy()** - למה Set?
-- מונע כפילויות אם אותו משתמש מופיע בכמה מחלקות/צוותים
-- משתמש ב-`employee_id` או `name` כמפתח ייחודי
+### 3. **estimateUsersByCompanySize()** - איך זה עובד?
+- ממיר את `company_size` (string) למספר משתמשים משוער
+- מיפוי: '1-10' → 8, '10-50' → 30, '50-200' → 125, '200-500' → 350, '500+' → 650
+- אם `company_size` לא קיים או לא מוכר, מחזיר 50 (default)
 
 ### 4. **Active Users Calculation** - למה הערכה?
 - אם אין `kpis.active_users` ב-DB, מעריך 78% מ-totalUsers
