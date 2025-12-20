@@ -457,6 +457,8 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
   }
 
   async fetchLearningAnalyticsData() {
+    // Read all snapshots with data from the last 30 days (or all if less than 30 days of data)
+    // This ensures charts show all available data, not just the most recent snapshot
     const { rows } = await this.pool.query(`
       SELECT 
         s.id,
@@ -484,43 +486,52 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       LEFT JOIN public.learning_analytics_courses c ON c.snapshot_id = s.id
       LEFT JOIN public.learning_analytics_skills s2 ON s2.snapshot_id = s.id
       LEFT JOIN public.learning_analytics_engagement e ON e.snapshot_id = s.id
+      WHERE s.snapshot_date >= COALESCE(
+        (SELECT MAX(snapshot_date) - INTERVAL '30 days' FROM public.learning_analytics_snapshot),
+        CURRENT_DATE - INTERVAL '30 days'
+      )
+      -- Only include rows that have actual data in at least one joined table
+      AND (
+        l.total_learners IS NOT NULL OR 
+        c.total_courses IS NOT NULL OR 
+        s2.total_skills_acquired IS NOT NULL OR
+        e.average_feedback_rating IS NOT NULL
+      )
       ORDER BY s.snapshot_date DESC, s.id DESC
       LIMIT 10
     `);
 
-    console.log(`[LearningAnalytics] Fetched ${rows.length} rows from database`);
+    console.log(`[LearningAnalytics] Fetched ${rows.length} rows with actual data from database`);
 
     if (!rows.length) {
-      console.log('[LearningAnalytics] ❌ No rows found in learning_analytics_snapshot');
+      console.log('[LearningAnalytics] ❌ No rows with data found in learning_analytics_snapshot');
       return null;
     }
 
-    // Log first few rows for debugging
+    // Log first row for debugging
     console.log('[LearningAnalytics] First row sample:', {
       id: rows[0]?.id,
       snapshot_date: rows[0]?.snapshot_date,
       period: rows[0]?.period,
-      has_learners: rows[0]?.total_learners !== null,
-      has_courses: rows[0]?.total_courses !== null,
-      has_skills: rows[0]?.total_skills_acquired !== null,
-      has_engagement: rows[0]?.average_feedback_rating !== null
+      total_learners: rows[0]?.total_learners,
+      total_courses: rows[0]?.total_courses,
+      active_enrollments: rows[0]?.active_enrollments,
+      average_feedback_rating: rows[0]?.average_feedback_rating
     });
 
-    // Find the latest row with actual data (non-null values in joined tables)
-    const latest = rows.find(row => 
-      row.total_learners !== null || 
-      row.total_courses !== null || 
-      row.total_skills_acquired !== null ||
-      row.average_feedback_rating !== null
-    ) || rows[0]; // Fallback to first row if all are null
+    // Use the first row (latest with actual data, already filtered by WHERE clause)
+    const latest = rows[0];
 
-    console.log('[LearningAnalytics] Selected row:', {
+    console.log('[LearningAnalytics] Selected row (latest with data):', {
       id: latest?.id,
       snapshot_date: latest?.snapshot_date,
+      period: latest?.period,
       total_learners: latest?.total_learners,
       total_courses: latest?.total_courses,
       active_enrollments: latest?.active_enrollments,
-      average_feedback_rating: latest?.average_feedback_rating
+      average_feedback_rating: latest?.average_feedback_rating,
+      courses_completed: latest?.courses_completed,
+      average_course_duration_hours: latest?.average_course_duration_hours
     });
 
     // Calculate metrics with safe defaults
