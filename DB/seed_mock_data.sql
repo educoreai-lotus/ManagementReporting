@@ -27,7 +27,7 @@ INSERT INTO public.directory_cache (
   hierarchy
 ) VALUES
 (
-  CURRENT_DATE - INTERVAL '15 days',
+  CURRENT_DATE,
   'ORG-001',
   'TechCorp Solutions',
   'Technology',
@@ -43,7 +43,7 @@ INSERT INTO public.directory_cache (
   '{"ceo": "John Smith", "departments": ["Engineering", "Sales", "HR"], "total_employees": 750}'::jsonb
 ),
 (
-  CURRENT_DATE - INTERVAL '10 days',
+  CURRENT_DATE,
   'ORG-002',
   'Global Learning Inc',
   'Education',
@@ -59,7 +59,7 @@ INSERT INTO public.directory_cache (
   '{"ceo": "Sarah Johnson", "departments": ["Training", "Development"], "total_employees": 320}'::jsonb
 ),
 (
-  CURRENT_DATE - INTERVAL '5 days',
+  CURRENT_DATE,
   'ORG-003',
   'InnovateNow Ltd',
   'Consulting',
@@ -311,26 +311,26 @@ INSERT INTO public.course_builder_cache (
   "createdAt",
   feedback
 ) VALUES
--- Recent snapshots for COURSE-001
-(CURRENT_DATE - INTERVAL '15 days', 'COURSE-001', 'Introduction to Data Science', 1250, 890, 85.50, 4.65, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Excellent course with practical examples'),
-(CURRENT_DATE - INTERVAL '10 days', 'COURSE-001', 'Introduction to Data Science', 1320, 950, 86.20, 4.68, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Great content and delivery'),
-(CURRENT_DATE - INTERVAL '5 days', 'COURSE-001', 'Introduction to Data Science', 1380, 1020, 87.10, 4.70, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Highly recommended'),
--- Recent snapshots for COURSE-002
-(CURRENT_DATE - INTERVAL '15 days', 'COURSE-002', 'Advanced JavaScript Development', 890, 620, 78.30, 4.45, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Good coverage of modern JS'),
-(CURRENT_DATE - INTERVAL '10 days', 'COURSE-002', 'Advanced JavaScript Development', 920, 650, 79.10, 4.48, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Well structured'),
-(CURRENT_DATE - INTERVAL '5 days', 'COURSE-002', 'Advanced JavaScript Development', 950, 680, 79.80, 4.50, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Practical exercises helpful'),
--- Recent snapshots for COURSE-003
-(CURRENT_DATE - INTERVAL '15 days', 'COURSE-003', 'Project Management Fundamentals', 2100, 1650, 92.40, 4.85, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Comprehensive and practical'),
-(CURRENT_DATE - INTERVAL '10 days', 'COURSE-003', 'Project Management Fundamentals', 2150, 1700, 92.80, 4.87, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Real-world examples'),
-(CURRENT_DATE - INTERVAL '5 days', 'COURSE-003', 'Project Management Fundamentals', 2200, 1750, 93.20, 4.88, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Best PM course available'),
--- Recent snapshots for COURSE-004
-(CURRENT_DATE - INTERVAL '15 days', 'COURSE-004', 'Machine Learning Basics', 650, 420, 72.50, 4.25, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Good introduction to ML'),
-(CURRENT_DATE - INTERVAL '10 days', 'COURSE-004', 'Machine Learning Basics', 680, 450, 73.20, 4.28, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Clear explanations'),
-(CURRENT_DATE - INTERVAL '5 days', 'COURSE-004', 'Machine Learning Basics', 710, 480, 74.00, 4.30, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Challenging but rewarding'),
--- Recent snapshots for COURSE-005
-(CURRENT_DATE - INTERVAL '15 days', 'COURSE-005', 'Leadership and Team Management', 1750, 1320, 88.60, 4.75, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Valuable leadership insights'),
-(CURRENT_DATE - INTERVAL '10 days', 'COURSE-005', 'Leadership and Team Management', 1800, 1370, 89.20, 4.77, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Practical strategies'),
-(CURRENT_DATE - INTERVAL '5 days', 'COURSE-005', 'Leadership and Team Management', 1850, 1420, 89.80, 4.79, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Excellent for managers')
+-- Recent snapshots for COURSE-001 (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'COURSE-001', 'Introduction to Data Science', 1380, 1020, 87.10, 4.70, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Highly recommended'),
+(CURRENT_DATE - INTERVAL '1 day', 'COURSE-001', 'Introduction to Data Science', 1320, 950, 86.20, 4.68, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Great content and delivery'),
+(CURRENT_DATE - INTERVAL '2 days', 'COURSE-001', 'Introduction to Data Science', 1250, 890, 85.50, 4.65, CURRENT_TIMESTAMP - INTERVAL '40 days', 'Excellent course with practical examples'),
+-- Recent snapshots for COURSE-002 (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'COURSE-002', 'Advanced JavaScript Development', 950, 680, 79.80, 4.50, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Practical exercises helpful'),
+(CURRENT_DATE - INTERVAL '1 day', 'COURSE-002', 'Advanced JavaScript Development', 920, 650, 79.10, 4.48, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Well structured'),
+(CURRENT_DATE - INTERVAL '2 days', 'COURSE-002', 'Advanced JavaScript Development', 890, 620, 78.30, 4.45, CURRENT_TIMESTAMP - INTERVAL '35 days', 'Good coverage of modern JS'),
+-- Recent snapshots for COURSE-003 (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'COURSE-003', 'Project Management Fundamentals', 2200, 1750, 93.20, 4.88, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Best PM course available'),
+(CURRENT_DATE - INTERVAL '1 day', 'COURSE-003', 'Project Management Fundamentals', 2150, 1700, 92.80, 4.87, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Real-world examples'),
+(CURRENT_DATE - INTERVAL '2 days', 'COURSE-003', 'Project Management Fundamentals', 2100, 1650, 92.40, 4.85, CURRENT_TIMESTAMP - INTERVAL '30 days', 'Comprehensive and practical'),
+-- Recent snapshots for COURSE-004 (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'COURSE-004', 'Machine Learning Basics', 710, 480, 74.00, 4.30, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Challenging but rewarding'),
+(CURRENT_DATE - INTERVAL '1 day', 'COURSE-004', 'Machine Learning Basics', 680, 450, 73.20, 4.28, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Clear explanations'),
+(CURRENT_DATE - INTERVAL '2 days', 'COURSE-004', 'Machine Learning Basics', 650, 420, 72.50, 4.25, CURRENT_TIMESTAMP - INTERVAL '25 days', 'Good introduction to ML'),
+-- Recent snapshots for COURSE-005 (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'COURSE-005', 'Leadership and Team Management', 1850, 1420, 89.80, 4.79, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Excellent for managers'),
+(CURRENT_DATE - INTERVAL '1 day', 'COURSE-005', 'Leadership and Team Management', 1800, 1370, 89.20, 4.77, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Practical strategies'),
+(CURRENT_DATE - INTERVAL '2 days', 'COURSE-005', 'Leadership and Team Management', 1750, 1320, 88.60, 4.75, CURRENT_TIMESTAMP - INTERVAL '20 days', 'Valuable leadership insights')
 ON CONFLICT (snapshot_date, course_id) DO NOTHING;
 
 -- ====================================================
@@ -347,47 +347,48 @@ INSERT INTO public.assessments_cache (
   final_grade,
   passed
 ) VALUES
--- COURSE-001 assessments
-(CURRENT_DATE - INTERVAL '15 days', 'USER-001', 'COURSE-001', 'precourse', 1, 70, 65, false),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-001', 'COURSE-001', 'midcourse', 1, 70, 78, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-001', 'COURSE-001', 'postcourse', 1, 70, 85, true),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-002', 'COURSE-001', 'precourse', 1, 70, 72, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-002', 'COURSE-001', 'midcourse', 1, 70, 80, true),
-(CURRENT_DATE - INTERVAL '5 days', 'USER-002', 'COURSE-001', 'postcourse', 1, 70, 88, true),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-003', 'COURSE-001', 'precourse', 1, 70, 68, false),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-003', 'COURSE-001', 'precourse', 2, 70, 75, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-003', 'COURSE-001', 'midcourse', 1, 70, 82, true),
--- COURSE-002 assessments
-(CURRENT_DATE - INTERVAL '15 days', 'USER-004', 'COURSE-002', 'precourse', 1, 70, 70, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-004', 'COURSE-002', 'midcourse', 1, 70, 76, true),
-(CURRENT_DATE - INTERVAL '5 days', 'USER-004', 'COURSE-002', 'postcourse', 1, 70, 83, true),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-005', 'COURSE-002', 'precourse', 1, 70, 65, false),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-005', 'COURSE-002', 'precourse', 2, 70, 73, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-005', 'COURSE-002', 'midcourse', 1, 70, 79, true),
--- COURSE-003 assessments
-(CURRENT_DATE - INTERVAL '15 days', 'USER-006', 'COURSE-003', 'precourse', 1, 70, 75, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-006', 'COURSE-003', 'midcourse', 1, 70, 85, true),
-(CURRENT_DATE - INTERVAL '5 days', 'USER-006', 'COURSE-003', 'postcourse', 1, 70, 92, true),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-007', 'COURSE-003', 'precourse', 1, 70, 80, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-007', 'COURSE-003', 'midcourse', 1, 70, 88, true),
--- COURSE-004 assessments
-(CURRENT_DATE - INTERVAL '15 days', 'USER-008', 'COURSE-004', 'precourse', 1, 70, 60, false),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-008', 'COURSE-004', 'precourse', 2, 70, 68, false),
-(CURRENT_DATE - INTERVAL '5 days', 'USER-008', 'COURSE-004', 'precourse', 3, 70, 74, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-008', 'COURSE-004', 'midcourse', 1, 70, 77, true),
--- COURSE-005 assessments
-(CURRENT_DATE - INTERVAL '15 days', 'USER-009', 'COURSE-005', 'precourse', 1, 70, 78, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-009', 'COURSE-005', 'midcourse', 1, 70, 84, true),
-(CURRENT_DATE - INTERVAL '5 days', 'USER-009', 'COURSE-005', 'postcourse', 1, 70, 90, true),
-(CURRENT_DATE - INTERVAL '15 days', 'USER-010', 'COURSE-005', 'precourse', 1, 70, 82, true),
-(CURRENT_DATE - INTERVAL '10 days', 'USER-010', 'COURSE-005', 'midcourse', 1, 70, 87, true)
+-- COURSE-001 assessments (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'USER-001', 'COURSE-001', 'precourse', 1, 70, 72, true),
+(CURRENT_DATE, 'USER-001', 'COURSE-001', 'midcourse', 1, 70, 82, true),
+(CURRENT_DATE, 'USER-001', 'COURSE-001', 'postcourse', 1, 70, 88, true),
+(CURRENT_DATE, 'USER-002', 'COURSE-001', 'precourse', 1, 70, 75, true),
+(CURRENT_DATE, 'USER-002', 'COURSE-001', 'midcourse', 1, 70, 85, true),
+(CURRENT_DATE, 'USER-002', 'COURSE-001', 'postcourse', 1, 70, 92, true),
+(CURRENT_DATE, 'USER-003', 'COURSE-001', 'precourse', 1, 70, 70, true),
+(CURRENT_DATE, 'USER-003', 'COURSE-001', 'midcourse', 1, 70, 80, true),
+(CURRENT_DATE, 'USER-003', 'COURSE-001', 'postcourse', 1, 70, 87, true),
+-- COURSE-002 assessments (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'USER-004', 'COURSE-002', 'precourse', 1, 70, 73, true),
+(CURRENT_DATE, 'USER-004', 'COURSE-002', 'midcourse', 1, 70, 79, true),
+(CURRENT_DATE, 'USER-004', 'COURSE-002', 'postcourse', 1, 70, 85, true),
+(CURRENT_DATE, 'USER-005', 'COURSE-002', 'precourse', 1, 70, 70, true),
+(CURRENT_DATE, 'USER-005', 'COURSE-002', 'midcourse', 1, 70, 78, true),
+(CURRENT_DATE, 'USER-005', 'COURSE-002', 'postcourse', 1, 70, 84, true),
+-- COURSE-003 assessments (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'USER-006', 'COURSE-003', 'precourse', 1, 70, 80, true),
+(CURRENT_DATE, 'USER-006', 'COURSE-003', 'midcourse', 1, 70, 88, true),
+(CURRENT_DATE, 'USER-006', 'COURSE-003', 'postcourse', 1, 70, 95, true),
+(CURRENT_DATE, 'USER-007', 'COURSE-003', 'precourse', 1, 70, 82, true),
+(CURRENT_DATE, 'USER-007', 'COURSE-003', 'midcourse', 1, 70, 90, true),
+-- COURSE-004 assessments (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'USER-008', 'COURSE-004', 'precourse', 1, 70, 74, true),
+(CURRENT_DATE, 'USER-008', 'COURSE-004', 'midcourse', 1, 70, 80, true),
+(CURRENT_DATE, 'USER-008', 'COURSE-004', 'postcourse', 1, 70, 85, true),
+(CURRENT_DATE, 'USER-009', 'COURSE-004', 'precourse', 1, 70, 70, true),
+(CURRENT_DATE, 'USER-009', 'COURSE-004', 'midcourse', 1, 70, 76, true),
+-- COURSE-005 assessments (using CURRENT_DATE to ensure latest snapshot)
+(CURRENT_DATE, 'USER-010', 'COURSE-005', 'precourse', 1, 70, 85, true),
+(CURRENT_DATE, 'USER-010', 'COURSE-005', 'midcourse', 1, 70, 90, true),
+(CURRENT_DATE, 'USER-010', 'COURSE-005', 'postcourse', 1, 70, 93, true),
+(CURRENT_DATE, 'USER-011', 'COURSE-005', 'precourse', 1, 70, 78, true),
+(CURRENT_DATE, 'USER-011', 'COURSE-005', 'midcourse', 1, 70, 84, true)
 ON CONFLICT (snapshot_date, user_id, course_id, exam_type, attempt_no) DO NOTHING;
 
 -- ====================================================
 -- Learning Analytics Snapshot
 -- ====================================================
 
--- Insert snapshots for different periods
+-- Insert snapshots for different periods (using CURRENT_DATE for latest)
 INSERT INTO public.learning_analytics_snapshot (
   snapshot_date,
   period,
@@ -397,33 +398,33 @@ INSERT INTO public.learning_analytics_snapshot (
   version,
   raw_payload
 ) VALUES
--- Daily snapshot
+-- Daily snapshot (latest)
 (
-  CURRENT_DATE - INTERVAL '5 days',
+  CURRENT_DATE,
   'daily',
-  (CURRENT_DATE - INTERVAL '5 days')::timestamp with time zone,
-  (CURRENT_DATE - INTERVAL '4 days')::timestamp with time zone,
-  CURRENT_TIMESTAMP - INTERVAL '5 days',
+  CURRENT_TIMESTAMP - INTERVAL '1 day',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP,
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
 ),
 -- Weekly snapshot
 (
-  CURRENT_DATE - INTERVAL '10 days',
+  CURRENT_DATE - INTERVAL '1 day',
   'weekly',
-  (CURRENT_DATE - INTERVAL '13 days')::timestamp with time zone,
-  (CURRENT_DATE - INTERVAL '6 days')::timestamp with time zone,
-  CURRENT_TIMESTAMP - INTERVAL '10 days',
+  (CURRENT_DATE - INTERVAL '7 days')::timestamp with time zone,
+  CURRENT_TIMESTAMP - INTERVAL '1 day',
+  CURRENT_TIMESTAMP - INTERVAL '1 day',
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
 ),
 -- Monthly snapshot
 (
-  CURRENT_DATE - INTERVAL '30 days',
+  CURRENT_DATE - INTERVAL '2 days',
   'monthly',
-  (CURRENT_DATE - INTERVAL '60 days')::timestamp with time zone,
-  CURRENT_TIMESTAMP - INTERVAL '30 days',
-  CURRENT_TIMESTAMP - INTERVAL '30 days',
+  (CURRENT_DATE - INTERVAL '30 days')::timestamp with time zone,
+  CURRENT_TIMESTAMP - INTERVAL '2 days',
+  CURRENT_TIMESTAMP - INTERVAL '2 days',
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
 )
@@ -436,20 +437,20 @@ DECLARE
   weekly_snapshot_id bigint;
   monthly_snapshot_id bigint;
 BEGIN
-  -- Get snapshot IDs
+  -- Get snapshot IDs (using latest dates)
   SELECT id INTO daily_snapshot_id
   FROM public.learning_analytics_snapshot
-  WHERE snapshot_date = CURRENT_DATE - INTERVAL '5 days' AND period = 'daily'
+  WHERE snapshot_date = CURRENT_DATE AND period = 'daily'
   LIMIT 1;
   
   SELECT id INTO weekly_snapshot_id
   FROM public.learning_analytics_snapshot
-  WHERE snapshot_date = CURRENT_DATE - INTERVAL '10 days' AND period = 'weekly'
+  WHERE snapshot_date = CURRENT_DATE - INTERVAL '1 day' AND period = 'weekly'
   LIMIT 1;
   
   SELECT id INTO monthly_snapshot_id
   FROM public.learning_analytics_snapshot
-  WHERE snapshot_date = CURRENT_DATE - INTERVAL '30 days' AND period = 'monthly'
+  WHERE snapshot_date = CURRENT_DATE - INTERVAL '2 days' AND period = 'monthly'
   LIMIT 1;
 
   -- ====================================================

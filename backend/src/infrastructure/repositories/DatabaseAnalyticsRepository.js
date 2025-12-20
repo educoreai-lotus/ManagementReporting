@@ -75,13 +75,17 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
    * ================================ */
 
   async fetchCourseBuilderData() {
+    // Read all unique courses from the last 30 days (or all if less than 30 days of data)
+    // This ensures charts show all available courses, not just the most recent snapshot
+    // DISTINCT ON ensures we get the latest record for each course_id
     const { rows } = await this.pool.query(`
-      SELECT *
+      SELECT DISTINCT ON (course_id) *
       FROM public.course_builder_cache
-      WHERE snapshot_date = (
-        SELECT MAX(snapshot_date) FROM public.course_builder_cache
+      WHERE snapshot_date >= COALESCE(
+        (SELECT MAX(snapshot_date) - INTERVAL '30 days' FROM public.course_builder_cache),
+        CURRENT_DATE - INTERVAL '30 days'
       )
-      ORDER BY course_id
+      ORDER BY course_id, snapshot_date DESC, ingested_at DESC
     `);
 
     if (!rows.length) {
@@ -123,12 +127,17 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
   }
 
   async fetchAssessmentData() {
+    // Read all unique assessments from the last 30 days (or all if less than 30 days of data)
+    // This ensures charts show all available data, not just the most recent snapshot
+    // DISTINCT ON ensures we get the latest record for each (user_id, course_id, exam_type, attempt_no)
     const { rows } = await this.pool.query(`
-      SELECT *
+      SELECT DISTINCT ON (user_id, course_id, exam_type, attempt_no) *
       FROM public.assessments_cache
-      WHERE snapshot_date = (
-        SELECT MAX(snapshot_date) FROM public.assessments_cache
+      WHERE snapshot_date >= COALESCE(
+        (SELECT MAX(snapshot_date) - INTERVAL '30 days' FROM public.assessments_cache),
+        CURRENT_DATE - INTERVAL '30 days'
       )
+      ORDER BY user_id, course_id, exam_type, attempt_no, snapshot_date DESC, ingested_at DESC
     `);
 
     if (!rows.length) {
@@ -166,12 +175,17 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
   }
 
   async fetchDirectoryData() {
+    // Read all unique organizations from the last 30 days (or all if less than 30 days of data)
+    // This ensures charts show all available organizations, not just the most recent snapshot
+    // DISTINCT ON ensures we get the latest record for each company_id
     const { rows } = await this.pool.query(`
-      SELECT *
+      SELECT DISTINCT ON (company_id) *
       FROM public.directory_cache
-      WHERE snapshot_date = (
-        SELECT MAX(snapshot_date) FROM public.directory_cache
+      WHERE snapshot_date >= COALESCE(
+        (SELECT MAX(snapshot_date) - INTERVAL '30 days' FROM public.directory_cache),
+        CURRENT_DATE - INTERVAL '30 days'
       )
+      ORDER BY company_id, snapshot_date DESC, ingested_at DESC
     `);
 
     if (!rows.length) {
