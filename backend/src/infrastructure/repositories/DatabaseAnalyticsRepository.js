@@ -188,7 +188,20 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       ORDER BY company_id, snapshot_date DESC, ingested_at DESC
     `);
 
+    console.log(`[Directory] Fetched ${rows.length} organizations from database`);
+    if (rows.length > 0) {
+      console.log('[Directory] Sample row:', {
+        company_id: rows[0]?.company_id,
+        company_name: rows[0]?.company_name,
+        snapshot_date: rows[0]?.snapshot_date,
+        verification_status: rows[0]?.verification_status,
+        has_hierarchy: !!rows[0]?.hierarchy,
+        has_kpis: !!rows[0]?.kpis
+      });
+    }
+
     if (!rows.length) {
+      console.log('[Directory] ❌ No rows found in directory_cache');
       return null;
     }
 
@@ -247,6 +260,8 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       organizationsActive // Calculated from verification_status (DB field)
     };
 
+    console.log('[Directory] Calculated metrics:', metrics);
+
     const details = {
       users: Array.from(orgUserMap.entries()).map(([organization, count]) => ({
         organization,
@@ -263,7 +278,13 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       }))
     };
 
-    return this.buildResponse(metrics, details, rows, 'directory');
+    const response = this.buildResponse(metrics, details, rows, 'directory');
+    console.log('[Directory] ✅ Response built:', {
+      has_metrics: !!response?.data?.metrics,
+      metrics_keys: Object.keys(response?.data?.metrics || {}),
+      metrics_values: response?.data?.metrics
+    });
+    return response;
   }
 
   /**
@@ -463,13 +484,27 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       LEFT JOIN public.learning_analytics_courses c ON c.snapshot_id = s.id
       LEFT JOIN public.learning_analytics_skills s2 ON s2.snapshot_id = s.id
       LEFT JOIN public.learning_analytics_engagement e ON e.snapshot_id = s.id
-      ORDER BY s.snapshot_date DESC
-      LIMIT 6
+      ORDER BY s.snapshot_date DESC, s.id DESC
+      LIMIT 10
     `);
 
+    console.log(`[LearningAnalytics] Fetched ${rows.length} rows from database`);
+
     if (!rows.length) {
+      console.log('[LearningAnalytics] ❌ No rows found in learning_analytics_snapshot');
       return null;
     }
+
+    // Log first few rows for debugging
+    console.log('[LearningAnalytics] First row sample:', {
+      id: rows[0]?.id,
+      snapshot_date: rows[0]?.snapshot_date,
+      period: rows[0]?.period,
+      has_learners: rows[0]?.total_learners !== null,
+      has_courses: rows[0]?.total_courses !== null,
+      has_skills: rows[0]?.total_skills_acquired !== null,
+      has_engagement: rows[0]?.average_feedback_rating !== null
+    });
 
     // Find the latest row with actual data (non-null values in joined tables)
     const latest = rows.find(row => 
@@ -478,6 +513,15 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       row.total_skills_acquired !== null ||
       row.average_feedback_rating !== null
     ) || rows[0]; // Fallback to first row if all are null
+
+    console.log('[LearningAnalytics] Selected row:', {
+      id: latest?.id,
+      snapshot_date: latest?.snapshot_date,
+      total_learners: latest?.total_learners,
+      total_courses: latest?.total_courses,
+      active_enrollments: latest?.active_enrollments,
+      average_feedback_rating: latest?.average_feedback_rating
+    });
 
     // Calculate metrics with safe defaults
     const totalCourses = Number(latest.total_courses) || 0;
@@ -513,6 +557,8 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       activeLearningSessions: activeEnrollments,
       learningROI: Math.round(learningROI * 100) / 100
     };
+
+    console.log('[LearningAnalytics] Calculated metrics:', metrics);
 
     const trends = rows
       .filter(row => row.total_learners !== null || row.total_courses !== null) // Only include rows with data
@@ -576,7 +622,17 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       courseStatus: courseStatus.rows
     };
 
-    return this.buildResponse(metrics, details, rows, 'learningAnalytics');
+    const response = this.buildResponse(metrics, details, rows, 'learningAnalytics');
+    console.log('[LearningAnalytics] ✅ Response built:', {
+      has_metrics: !!response?.data?.metrics,
+      metrics_keys: Object.keys(response?.data?.metrics || {}),
+      metrics_sample: {
+        totalLearningHours: response?.data?.metrics?.totalLearningHours,
+        platformUsageRate: response?.data?.metrics?.platformUsageRate,
+        activeLearningSessions: response?.data?.metrics?.activeLearningSessions
+      }
+    });
+    return response;
   }
 
   /* ================================
