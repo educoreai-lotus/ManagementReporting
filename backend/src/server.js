@@ -17,6 +17,7 @@ import { rateLimiter } from './presentation/middleware/rateLimiter.js';
 import { initializeJobs } from './infrastructure/jobs/index.js';
 import runMigration from '../scripts/runMigration.js';
 import { registerService } from './registration/register.js';
+import runSeedSqlIfNeeded from './infrastructure/runSeedSqlIfNeeded.js';
 
 dotenv.config();
 
@@ -101,6 +102,14 @@ app.listen(PORT, () => {
       await runMigration();
     } catch (migrationErr) {
       console.error('[Startup] Migration error (non-fatal):', migrationErr.message);
+    }
+    
+    // Auto-run SQL seed file if needed (advisory lock + sentinel check) - non-blocking
+    if (process.env.DATABASE_URL) {
+      runSeedSqlIfNeeded().catch(seedErr => {
+        // Already logged in runSeedSqlIfNeeded, just prevent unhandled rejection
+        console.error('[Startup] Seed execution error (non-fatal):', seedErr.message);
+      });
     }
     
     // Test database connection on boot - non-blocking

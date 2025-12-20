@@ -152,27 +152,6 @@ ON CONFLICT (course_id) DO NOTHING;
 -- Course-Organization Permissions
 -- ====================================================
 
--- Generate UUIDs for organizations (consistent with directory_cache)
--- Using deterministic UUIDs based on company_id
-INSERT INTO public.course_org_permissions (course_id, org_uuid)
-SELECT 
-  c.course_id,
-  ('00000000-0000-0000-0000-' || LPAD(ROW_NUMBER() OVER(), 12, '0'))::uuid as org_uuid
-FROM public.courses c
-CROSS JOIN (VALUES 
-  ('ORG-001'),
-  ('ORG-002'),
-  ('ORG-003')
-) AS orgs(company_id)
-WHERE c.permission_scope = 'orgs'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.course_org_permissions cop
-    WHERE cop.course_id = c.course_id
-  )
-LIMIT 6
-ON CONFLICT (course_id, org_uuid) DO NOTHING;
-
--- More specific mappings
 INSERT INTO public.course_org_permissions (course_id, org_uuid) VALUES
 ('COURSE-001', '550e8400-e29b-41d4-a716-446655440001'::uuid),
 ('COURSE-001', '550e8400-e29b-41d4-a716-446655440002'::uuid),
@@ -448,8 +427,7 @@ INSERT INTO public.learning_analytics_snapshot (
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
 )
-ON CONFLICT DO NOTHING
-RETURNING id;
+ON CONFLICT DO NOTHING;
 
 -- Get snapshot IDs for dependent tables
 DO $$
@@ -635,4 +613,3 @@ END $$;
 -- No destructive operations performed
 -- All constraints respected
 -- Cross-table consistency maintained
-
