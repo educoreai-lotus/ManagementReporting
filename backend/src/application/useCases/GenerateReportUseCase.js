@@ -167,7 +167,15 @@ export class GenerateReportUseCase {
       'learning-roi': ['learningAnalytics', 'courseBuilder', 'combined-top-courses'],
       'skill-gap': ['assessment', 'combined-skill-gap-analysis'],
       'compliance': ['assessment', 'courseBuilder'],
-      'performance-trend': ['learningAnalytics', 'combined-monthly-growth', 'combined-rating-vs-engagement'],
+      'performance-trend': [
+        'courseBuilder', 
+        'assessment', 
+        'combined-monthly-growth', 
+        'combined-rating-vs-engagement', 
+        'combined-enrollments-comparison', 
+        'combined-top-courses',
+        'combined-completion-rate-per-org'
+      ],
       'course-performance-deep-dive': ['courseBuilder', 'assessment', 'combined-enrollments-comparison', 'combined-top-courses', 'combined-dropoff'],
       'content-effectiveness': ['contentStudio', 'combined-content-usage-by-creator'],
       'department-performance': ['directory', 'combined-completion-rate-per-org', 'combined-users-per-organization'],
