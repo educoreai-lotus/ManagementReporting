@@ -21,17 +21,30 @@
     <script>
       // Wait for bot script to load
       window.addEventListener('load', function() {
-        // Get user data from your auth system
-        // TODO: Replace with YOUR actual user data source
-        const userData = window.APP_USER || {}; // Your user object
+        // Get user data from localStorage (auth system)
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
+        
+        // Extract userId from JWT token if available
+        let userId = 'DEV_BOT_USER';
+        if (token) {
+          try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              userId = payload.userId || payload.sub || payload.id || 'DEV_BOT_USER';
+            }
+          } catch (error) {
+            console.warn('Could not parse JWT token, using fallback user');
+          }
+        }
         
         // Initialize bot
         if (window.initializeEducoreBot) {
           window.initializeEducoreBot({
             microservice: 'HR_MANAGEMENT_REPORTING',
-            userId: userData.id || 'anonymous',
-            token: userData.token || '',
-            tenantId: userData.tenantId || 'default'
+            userId: userId,
+            token: token,
+            tenantId: 'default'
           });
         }
       });
