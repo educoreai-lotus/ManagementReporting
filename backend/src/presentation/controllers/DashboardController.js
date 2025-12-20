@@ -65,8 +65,8 @@ export class DashboardController {
         if (chart.metadata?.service === 'contentStudio') {
           return false;
         }
-        // Include main service charts for priority services (directory, courseBuilder, assessment, learningAnalytics)
-        const priorityServices = ['directory', 'courseBuilder', 'assessment', 'learningAnalytics'];
+        // Include main service charts for priority services (directory, courseBuilder, assessment)
+        const priorityServices = ['directory', 'courseBuilder', 'assessment'];
         if (priorityServices.includes(chart.metadata?.service)) {
           return true;
         }
@@ -112,7 +112,8 @@ export class DashboardController {
             if (chart.metadata?.isPriority === false) return false;
             if (chart.metadata?.chartType) return false;
             if (chart.metadata?.service === 'contentStudio') return false;
-            const priorityServices = ['directory', 'courseBuilder', 'assessment', 'learningAnalytics'];
+            if (chart.metadata?.service === 'learningAnalytics') return false; // Learning Analytics chart removed
+            const priorityServices = ['directory', 'courseBuilder', 'assessment'];
             if (priorityServices.includes(chart.metadata?.service)) return true;
             if (priorityCombinedChartIds.includes(chart.id)) return true;
             return false;
@@ -179,8 +180,8 @@ export class DashboardController {
         if (chart.metadata?.service === 'contentStudio') {
           return false;
         }
-        // Include main service charts for priority services (directory, courseBuilder, assessment, learningAnalytics)
-        const priorityServices = ['directory', 'courseBuilder', 'assessment', 'learningAnalytics'];
+        // Include main service charts for priority services (directory, courseBuilder, assessment)
+        const priorityServices = ['directory', 'courseBuilder', 'assessment'];
         if (priorityServices.includes(chart.metadata?.service)) {
           return true;
         }
