@@ -389,6 +389,7 @@ ON CONFLICT (snapshot_date, user_id, course_id, exam_type, attempt_no) DO NOTHIN
 -- ====================================================
 
 -- Insert snapshots for different periods (using CURRENT_DATE for latest)
+-- Note: learning_analytics_snapshot has no unique constraint, so we use INSERT to ensure data exists
 INSERT INTO public.learning_analytics_snapshot (
   snapshot_date,
   period,
@@ -397,9 +398,8 @@ INSERT INTO public.learning_analytics_snapshot (
   calculated_at,
   version,
   raw_payload
-) VALUES
--- Daily snapshot (latest)
-(
+)
+SELECT
   CURRENT_DATE,
   'daily',
   CURRENT_TIMESTAMP - INTERVAL '1 day',
@@ -407,9 +407,21 @@ INSERT INTO public.learning_analytics_snapshot (
   CURRENT_TIMESTAMP,
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
-),
--- Weekly snapshot
-(
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.learning_analytics_snapshot 
+  WHERE snapshot_date = CURRENT_DATE AND period = 'daily'
+);
+
+INSERT INTO public.learning_analytics_snapshot (
+  snapshot_date,
+  period,
+  start_date,
+  end_date,
+  calculated_at,
+  version,
+  raw_payload
+)
+SELECT
   CURRENT_DATE - INTERVAL '1 day',
   'weekly',
   (CURRENT_DATE - INTERVAL '7 days')::timestamp with time zone,
@@ -417,9 +429,21 @@ INSERT INTO public.learning_analytics_snapshot (
   CURRENT_TIMESTAMP - INTERVAL '1 day',
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
-),
--- Monthly snapshot
-(
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.learning_analytics_snapshot 
+  WHERE snapshot_date = CURRENT_DATE - INTERVAL '1 day' AND period = 'weekly'
+);
+
+INSERT INTO public.learning_analytics_snapshot (
+  snapshot_date,
+  period,
+  start_date,
+  end_date,
+  calculated_at,
+  version,
+  raw_payload
+)
+SELECT
   CURRENT_DATE - INTERVAL '2 days',
   'monthly',
   (CURRENT_DATE - INTERVAL '30 days')::timestamp with time zone,
@@ -427,8 +451,10 @@ INSERT INTO public.learning_analytics_snapshot (
   CURRENT_TIMESTAMP - INTERVAL '2 days',
   '1.0',
   '{"source": "mock_data", "generated": true}'::jsonb
-)
-ON CONFLICT DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.learning_analytics_snapshot 
+  WHERE snapshot_date = CURRENT_DATE - INTERVAL '2 days' AND period = 'monthly'
+);
 
 -- Get snapshot IDs for dependent tables
 DO $$
@@ -438,20 +464,33 @@ DECLARE
   monthly_snapshot_id bigint;
 BEGIN
   -- Get snapshot IDs (using latest dates)
+  -- If snapshots don't exist, they should have been created above
   SELECT id INTO daily_snapshot_id
   FROM public.learning_analytics_snapshot
   WHERE snapshot_date = CURRENT_DATE AND period = 'daily'
+  ORDER BY id DESC
   LIMIT 1;
   
   SELECT id INTO weekly_snapshot_id
   FROM public.learning_analytics_snapshot
   WHERE snapshot_date = CURRENT_DATE - INTERVAL '1 day' AND period = 'weekly'
+  ORDER BY id DESC
   LIMIT 1;
   
   SELECT id INTO monthly_snapshot_id
   FROM public.learning_analytics_snapshot
   WHERE snapshot_date = CURRENT_DATE - INTERVAL '2 days' AND period = 'monthly'
+  ORDER BY id DESC
   LIMIT 1;
+
+  -- If daily_snapshot_id is still NULL, create it now
+  IF daily_snapshot_id IS NULL THEN
+    INSERT INTO public.learning_analytics_snapshot (
+      snapshot_date, period, start_date, end_date, calculated_at, version, raw_payload
+    ) VALUES (
+      CURRENT_DATE, 'daily', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, '1.0', '{"source": "mock_data", "generated": true}'::jsonb
+    ) RETURNING id INTO daily_snapshot_id;
+  END IF;
 
   -- ====================================================
   -- Learning Analytics Metrics (One-to-One Tables)
@@ -465,146 +504,252 @@ BEGIN
   (monthly_snapshot_id, 1450, 1150, 3)
   ON CONFLICT (snapshot_id) DO NOTHING;
   
-  -- Courses metrics
-  INSERT INTO public.learning_analytics_courses (
-    snapshot_id,
-    total_courses,
-    courses_completed,
-    average_completion_rate,
-    total_enrollments,
-    active_enrollments,
-    average_course_duration_hours,
-    average_lessons_per_course
-  )
-  VALUES
-  (daily_snapshot_id, 5, 420, 85.50, 6950, 5480, 12.5, 3.2),
-  (weekly_snapshot_id, 5, 450, 86.20, 7200, 5700, 12.8, 3.3),
-  (monthly_snapshot_id, 5, 480, 87.10, 7500, 5950, 13.0, 3.4)
-  ON CONFLICT (snapshot_id) DO NOTHING;
+  -- Courses metrics (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_courses (
+      snapshot_id, total_courses, courses_completed, average_completion_rate,
+      total_enrollments, active_enrollments, average_course_duration_hours, average_lessons_per_course
+    ) VALUES (daily_snapshot_id, 5, 420, 85.50, 6950, 5480, 12.5, 3.2)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
   
-  -- Content metrics
-  INSERT INTO public.learning_analytics_content (snapshot_id, total_topics, average_topics_per_content)
-  VALUES
-  (daily_snapshot_id, 13, 1.8),
-  (weekly_snapshot_id, 13, 1.9),
-  (monthly_snapshot_id, 13, 2.0)
-  ON CONFLICT (snapshot_id) DO NOTHING;
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_courses (
+      snapshot_id, total_courses, courses_completed, average_completion_rate,
+      total_enrollments, active_enrollments, average_course_duration_hours, average_lessons_per_course
+    ) VALUES (weekly_snapshot_id, 5, 450, 86.20, 7200, 5700, 12.8, 3.3)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
   
-  -- Skills metrics
-  INSERT INTO public.learning_analytics_skills (
-    snapshot_id,
-    total_skills_acquired,
-    average_skills_per_competency,
-    total_unique_learning_paths,
-    average_skills_per_learning_path
-  )
-  VALUES
-  (daily_snapshot_id, 450, 3.2, 25, 18.0),
-  (weekly_snapshot_id, 480, 3.3, 28, 18.5),
-  (monthly_snapshot_id, 520, 3.4, 30, 19.0)
-  ON CONFLICT (snapshot_id) DO NOTHING;
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_courses (
+      snapshot_id, total_courses, courses_completed, average_completion_rate,
+      total_enrollments, active_enrollments, average_course_duration_hours, average_lessons_per_course
+    ) VALUES (monthly_snapshot_id, 5, 480, 87.10, 7500, 5950, 13.0, 3.4)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
   
-  -- Assessments metrics
-  INSERT INTO public.learning_analytics_assessments (
-    snapshot_id,
-    total_assessments,
-    total_distinct_assessments,
-    average_attempts_per_assessment,
-    pass_rate,
-    average_final_grade,
-    average_passing_grade
-  )
-  VALUES
-  (daily_snapshot_id, 1250, 15, 1.8, 78.50, 76.20, 70.00),
-  (weekly_snapshot_id, 1350, 15, 1.9, 79.20, 77.10, 70.00),
-  (monthly_snapshot_id, 1450, 15, 2.0, 80.00, 78.00, 70.00)
-  ON CONFLICT (snapshot_id) DO NOTHING;
+  -- Content metrics (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_content (snapshot_id, total_topics, average_topics_per_content)
+    VALUES (daily_snapshot_id, 13, 1.8)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
   
-  -- Engagement metrics
-  INSERT INTO public.learning_analytics_engagement (
-    snapshot_id,
-    average_feedback_rating,
-    total_feedback_submissions,
-    total_competitions,
-    average_competition_score
-  )
-  VALUES
-  (daily_snapshot_id, 4.65, 890, 15, 82.50),
-  (weekly_snapshot_id, 4.68, 950, 18, 83.20),
-  (monthly_snapshot_id, 4.70, 1020, 20, 84.00)
-  ON CONFLICT (snapshot_id) DO NOTHING;
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_content (snapshot_id, total_topics, average_topics_per_content)
+    VALUES (weekly_snapshot_id, 13, 1.9)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_content (snapshot_id, total_topics, average_topics_per_content)
+    VALUES (monthly_snapshot_id, 13, 2.0)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  -- Skills metrics (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skills (
+      snapshot_id, total_skills_acquired, average_skills_per_competency,
+      total_unique_learning_paths, average_skills_per_learning_path
+    ) VALUES (daily_snapshot_id, 450, 3.2, 25, 18.0)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skills (
+      snapshot_id, total_skills_acquired, average_skills_per_competency,
+      total_unique_learning_paths, average_skills_per_learning_path
+    ) VALUES (weekly_snapshot_id, 480, 3.3, 28, 18.5)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skills (
+      snapshot_id, total_skills_acquired, average_skills_per_competency,
+      total_unique_learning_paths, average_skills_per_learning_path
+    ) VALUES (monthly_snapshot_id, 520, 3.4, 30, 19.0)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  -- Assessments metrics (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_assessments (
+      snapshot_id, total_assessments, total_distinct_assessments,
+      average_attempts_per_assessment, pass_rate, average_final_grade, average_passing_grade
+    ) VALUES (daily_snapshot_id, 1250, 15, 1.8, 78.50, 76.20, 70.00)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_assessments (
+      snapshot_id, total_assessments, total_distinct_assessments,
+      average_attempts_per_assessment, pass_rate, average_final_grade, average_passing_grade
+    ) VALUES (weekly_snapshot_id, 1350, 15, 1.9, 79.20, 77.10, 70.00)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_assessments (
+      snapshot_id, total_assessments, total_distinct_assessments,
+      average_attempts_per_assessment, pass_rate, average_final_grade, average_passing_grade
+    ) VALUES (monthly_snapshot_id, 1450, 15, 2.0, 80.00, 78.00, 70.00)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  -- Engagement metrics (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_engagement (
+      snapshot_id, average_feedback_rating, total_feedback_submissions,
+      total_competitions, average_competition_score
+    ) VALUES (daily_snapshot_id, 4.65, 890, 15, 82.50)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_engagement (
+      snapshot_id, average_feedback_rating, total_feedback_submissions,
+      total_competitions, average_competition_score
+    ) VALUES (weekly_snapshot_id, 4.68, 950, 18, 83.20)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_engagement (
+      snapshot_id, average_feedback_rating, total_feedback_submissions,
+      total_competitions, average_competition_score
+    ) VALUES (monthly_snapshot_id, 4.70, 1020, 20, 84.00)
+    ON CONFLICT (snapshot_id) DO NOTHING;
+  END IF;
   
   -- ====================================================
   -- Learning Analytics Breakdown Tables
   -- ====================================================
   
-  -- Competency level breakdown
-  INSERT INTO public.learning_analytics_competency_level_breakdown (snapshot_id, level, learner_count)
-  VALUES
-  (daily_snapshot_id, 'beginner', 450),
-  (daily_snapshot_id, 'intermediate', 380),
-  (daily_snapshot_id, 'advanced', 150),
-  (weekly_snapshot_id, 'beginner', 480),
-  (weekly_snapshot_id, 'intermediate', 400),
-  (weekly_snapshot_id, 'advanced', 170),
-  (monthly_snapshot_id, 'beginner', 520),
-  (monthly_snapshot_id, 'intermediate', 420),
-  (monthly_snapshot_id, 'advanced', 210)
-  ON CONFLICT DO NOTHING;
+  -- Competency level breakdown (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_competency_level_breakdown (snapshot_id, level, learner_count)
+    VALUES
+    (daily_snapshot_id, 'beginner', 450),
+    (daily_snapshot_id, 'intermediate', 380),
+    (daily_snapshot_id, 'advanced', 150)
+    ON CONFLICT DO NOTHING;
+  END IF;
   
-  -- Feedback rating breakdown
-  INSERT INTO public.learning_analytics_feedback_rating_breakdown (snapshot_id, rating, count)
-  VALUES
-  (daily_snapshot_id, 5, 520),
-  (daily_snapshot_id, 4, 280),
-  (daily_snapshot_id, 3, 70),
-  (daily_snapshot_id, 2, 15),
-  (daily_snapshot_id, 1, 5),
-  (weekly_snapshot_id, 5, 560),
-  (weekly_snapshot_id, 4, 300),
-  (weekly_snapshot_id, 3, 75),
-  (weekly_snapshot_id, 2, 12),
-  (weekly_snapshot_id, 1, 3),
-  (monthly_snapshot_id, 5, 600),
-  (monthly_snapshot_id, 4, 320),
-  (monthly_snapshot_id, 3, 80),
-  (monthly_snapshot_id, 2, 15),
-  (monthly_snapshot_id, 1, 5)
-  ON CONFLICT DO NOTHING;
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_competency_level_breakdown (snapshot_id, level, learner_count)
+    VALUES
+    (weekly_snapshot_id, 'beginner', 480),
+    (weekly_snapshot_id, 'intermediate', 400),
+    (weekly_snapshot_id, 'advanced', 170)
+    ON CONFLICT DO NOTHING;
+  END IF;
   
-  -- Course status breakdown
-  INSERT INTO public.learning_analytics_course_status_breakdown (snapshot_id, status, count)
-  VALUES
-  (daily_snapshot_id, 'active', 5),
-  (daily_snapshot_id, 'archived', 0),
-  (daily_snapshot_id, 'deleted', 0),
-  (weekly_snapshot_id, 'active', 5),
-  (weekly_snapshot_id, 'archived', 0),
-  (weekly_snapshot_id, 'deleted', 0),
-  (monthly_snapshot_id, 'active', 5),
-  (monthly_snapshot_id, 'archived', 0),
-  (monthly_snapshot_id, 'deleted', 0)
-  ON CONFLICT DO NOTHING;
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_competency_level_breakdown (snapshot_id, level, learner_count)
+    VALUES
+    (monthly_snapshot_id, 'beginner', 520),
+    (monthly_snapshot_id, 'intermediate', 420),
+    (monthly_snapshot_id, 'advanced', 210)
+    ON CONFLICT DO NOTHING;
+  END IF;
   
-  -- Skill demand
-  INSERT INTO public.learning_analytics_skill_demand (snapshot_id, skill_id, skill_name, demand_count, rank_position)
-  VALUES
-  (daily_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 320, 1),
-  (daily_snapshot_id, 'REACT', 'React Development', 280, 2),
-  (daily_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 250, 3),
-  (daily_snapshot_id, 'PLANNING', 'Project Planning', 220, 4),
-  (daily_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 200, 5),
-  (weekly_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 350, 1),
-  (weekly_snapshot_id, 'REACT', 'React Development', 300, 2),
-  (weekly_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 270, 3),
-  (weekly_snapshot_id, 'PLANNING', 'Project Planning', 240, 4),
-  (weekly_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 220, 5),
-  (monthly_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 380, 1),
-  (monthly_snapshot_id, 'REACT', 'React Development', 320, 2),
-  (monthly_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 290, 3),
-  (monthly_snapshot_id, 'PLANNING', 'Project Planning', 260, 4),
-  (monthly_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 240, 5)
-  ON CONFLICT DO NOTHING;
+  -- Feedback rating breakdown (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_feedback_rating_breakdown (snapshot_id, rating, count)
+    VALUES
+    (daily_snapshot_id, 5, 520),
+    (daily_snapshot_id, 4, 280),
+    (daily_snapshot_id, 3, 70),
+    (daily_snapshot_id, 2, 15),
+    (daily_snapshot_id, 1, 5)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_feedback_rating_breakdown (snapshot_id, rating, count)
+    VALUES
+    (weekly_snapshot_id, 5, 560),
+    (weekly_snapshot_id, 4, 300),
+    (weekly_snapshot_id, 3, 75),
+    (weekly_snapshot_id, 2, 12),
+    (weekly_snapshot_id, 1, 3)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_feedback_rating_breakdown (snapshot_id, rating, count)
+    VALUES
+    (monthly_snapshot_id, 5, 600),
+    (monthly_snapshot_id, 4, 320),
+    (monthly_snapshot_id, 3, 80),
+    (monthly_snapshot_id, 2, 15),
+    (monthly_snapshot_id, 1, 5)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  -- Course status breakdown (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_course_status_breakdown (snapshot_id, status, count)
+    VALUES
+    (daily_snapshot_id, 'active', 5),
+    (daily_snapshot_id, 'archived', 0),
+    (daily_snapshot_id, 'deleted', 0)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_course_status_breakdown (snapshot_id, status, count)
+    VALUES
+    (weekly_snapshot_id, 'active', 5),
+    (weekly_snapshot_id, 'archived', 0),
+    (weekly_snapshot_id, 'deleted', 0)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_course_status_breakdown (snapshot_id, status, count)
+    VALUES
+    (monthly_snapshot_id, 'active', 5),
+    (monthly_snapshot_id, 'archived', 0),
+    (monthly_snapshot_id, 'deleted', 0)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  -- Skill demand (only if snapshot_id is not NULL)
+  IF daily_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skill_demand (snapshot_id, skill_id, skill_name, demand_count, rank_position)
+    VALUES
+    (daily_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 320, 1),
+    (daily_snapshot_id, 'REACT', 'React Development', 280, 2),
+    (daily_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 250, 3),
+    (daily_snapshot_id, 'PLANNING', 'Project Planning', 220, 4),
+    (daily_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 200, 5)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF weekly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skill_demand (snapshot_id, skill_id, skill_name, demand_count, rank_position)
+    VALUES
+    (weekly_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 350, 1),
+    (weekly_snapshot_id, 'REACT', 'React Development', 300, 2),
+    (weekly_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 270, 3),
+    (weekly_snapshot_id, 'PLANNING', 'Project Planning', 240, 4),
+    (weekly_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 220, 5)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  
+  IF monthly_snapshot_id IS NOT NULL THEN
+    INSERT INTO public.learning_analytics_skill_demand (snapshot_id, skill_id, skill_name, demand_count, rank_position)
+    VALUES
+    (monthly_snapshot_id, 'DATA-CLEAN', 'Data Cleaning', 380, 1),
+    (monthly_snapshot_id, 'REACT', 'React Development', 320, 2),
+    (monthly_snapshot_id, 'COMM-SKILLS', 'Communication Skills', 290, 3),
+    (monthly_snapshot_id, 'PLANNING', 'Project Planning', 260, 4),
+    (monthly_snapshot_id, 'JS-ES6', 'JavaScript ES6+', 240, 5)
+    ON CONFLICT DO NOTHING;
+  END IF;
 END $$;
 
 -- ====================================================

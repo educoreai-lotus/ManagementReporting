@@ -471,39 +471,73 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
       return null;
     }
 
-    const latest = rows[0];
-    const totalLearningHours = (latest.average_course_duration_hours || 0) * (latest.total_courses || 0);
-    const averageLearningHoursPerUser = latest.total_learners
-      ? totalLearningHours / latest.total_learners
+    // Find the latest row with actual data (non-null values in joined tables)
+    const latest = rows.find(row => 
+      row.total_learners !== null || 
+      row.total_courses !== null || 
+      row.total_skills_acquired !== null ||
+      row.average_feedback_rating !== null
+    ) || rows[0]; // Fallback to first row if all are null
+
+    // Calculate metrics with safe defaults
+    const totalCourses = Number(latest.total_courses) || 0;
+    const averageCourseDurationHours = Number(latest.average_course_duration_hours) || 0;
+    const totalLearningHours = averageCourseDurationHours * totalCourses;
+    
+    const totalLearners = Number(latest.total_learners) || 0;
+    const activeLearners = Number(latest.active_learners) || 0;
+    const averageLearningHoursPerUser = totalLearners > 0
+      ? totalLearningHours / totalLearners
       : 0;
-    const platformUsageRate = latest.total_learners
-      ? (latest.active_learners / latest.total_learners) * 100
+    
+    const platformUsageRate = totalLearners > 0
+      ? (activeLearners / totalLearners) * 100
+      : 0;
+
+    const averageFeedbackRating = Number(latest.average_feedback_rating) || 0;
+    const userSatisfactionScore = averageFeedbackRating > 0
+      ? averageFeedbackRating * 20
+      : 0;
+
+    const activeEnrollments = Number(latest.active_enrollments) || 0;
+    const coursesCompleted = Number(latest.courses_completed) || 0;
+    const learningROI = totalCourses > 0 && coursesCompleted > 0
+      ? (coursesCompleted / totalCourses) * 100
       : 0;
 
     const metrics = {
-      totalLearningHours,
-      averageLearningHoursPerUser,
-      platformUsageRate,
-      userSatisfactionScore: (latest.average_feedback_rating || 0) * 20,
-      activeLearningSessions: latest.active_enrollments || 0,
-      learningROI: latest.courses_completed && latest.total_courses
-        ? (latest.courses_completed / latest.total_courses) * 100
-        : 0
+      totalLearningHours: Math.round(totalLearningHours * 100) / 100,
+      averageLearningHoursPerUser: Math.round(averageLearningHoursPerUser * 100) / 100,
+      platformUsageRate: Math.round(platformUsageRate * 100) / 100,
+      userSatisfactionScore: Math.round(userSatisfactionScore * 100) / 100,
+      activeLearningSessions: activeEnrollments,
+      learningROI: Math.round(learningROI * 100) / 100
     };
 
-    const trends = rows.map((row) => ({
-      period: row.period,
-      date_range: {
-        start: row.start_date ? new Date(row.start_date).toISOString() : null,
-        end: row.end_date ? new Date(row.end_date).toISOString() : null
-      },
-      metrics: {
-        totalLearningHours: (row.average_course_duration_hours || 0) * (row.total_courses || 0),
-        newUsers: row.active_learners || 0,
-        platformUsageRate: row.total_learners ? (row.active_learners / row.total_learners) * 100 : 0
-      },
-      calculated_at: row.calculated_at ? new Date(row.calculated_at).toISOString() : null
-    }));
+    const trends = rows
+      .filter(row => row.total_learners !== null || row.total_courses !== null) // Only include rows with data
+      .map((row) => {
+        const totalCourses = Number(row.total_courses) || 0;
+        const avgDuration = Number(row.average_course_duration_hours) || 0;
+        const totalLearners = Number(row.total_learners) || 0;
+        const activeLearners = Number(row.active_learners) || 0;
+        
+        return {
+          period: row.period,
+          date_range: {
+            start: row.start_date ? new Date(row.start_date).toISOString() : null,
+            end: row.end_date ? new Date(row.end_date).toISOString() : null
+          },
+          metrics: {
+            totalLearningHours: Math.round((avgDuration * totalCourses) * 100) / 100,
+            newUsers: activeLearners,
+            platformUsageRate: totalLearners > 0 
+              ? Math.round((activeLearners / totalLearners) * 100 * 100) / 100 
+              : 0
+          },
+          calculated_at: row.calculated_at ? new Date(row.calculated_at).toISOString() : null
+        };
+      });
 
     const [skillDemand, competencyLevels, feedbackRatings, courseStatus] = await Promise.all([
       this.pool.query(

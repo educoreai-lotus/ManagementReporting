@@ -233,8 +233,15 @@ export class GetDashboardUseCase {
 
     for (const key of keyMetrics) {
       if (metrics[key] !== undefined && typeof metrics[key] === 'number') {
+        // Include even if value is 0 (for learningAnalytics, 0 is valid data)
         simpleMetrics[key] = metrics[key];
       }
+    }
+
+    // For learningAnalytics, ensure we have at least some data to display
+    if (service === 'learningAnalytics' && Object.keys(simpleMetrics).length === 0) {
+      // If no metrics found, return empty array (chart will show "No data")
+      return [];
     }
 
     return this.formatMetricsArray(simpleMetrics);
