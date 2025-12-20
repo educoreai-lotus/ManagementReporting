@@ -26,7 +26,6 @@ function App() {
       </Router>
 
       {/* RAG Chatbot Container - Floating widget appears on all pages */}
-      <div id="edu-bot-container"></div>
     </ThemeProvider>
   );
 }

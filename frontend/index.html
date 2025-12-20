@@ -8,8 +8,36 @@
   </head>
   <body>
     <div id="root"></div>
-    <!-- RAG Chatbot Script - Loaded early for better performance -->
-    <script src="https://rag-production-3a4c.up.railway.app/embed/bot.js" async></script>
+    
+    <!-- ✅ EDUCORE BOT - DO NOT MODIFY -->
+    <div id="edu-bot-container"></div>
+    <!-- ✅ END BOT CONTAINER -->
+    
+    <!-- ✅ BOT SCRIPT -->
+    <script src="https://rag-production-3a4c.up.railway.app/embed/bot.js"></script>
+    <!-- ✅ END BOT SCRIPT -->
+    
+    <!-- ✅ INITIALIZATION -->
+    <script>
+      // Wait for bot script to load
+      window.addEventListener('load', function() {
+        // Get user data from your auth system
+        // TODO: Replace with YOUR actual user data source
+        const userData = window.APP_USER || {}; // Your user object
+        
+        // Initialize bot
+        if (window.initializeEducoreBot) {
+          window.initializeEducoreBot({
+            microservice: 'HR_MANAGEMENT_REPORTING',
+            userId: userData.id || 'anonymous',
+            token: userData.token || '',
+            tenantId: userData.tenantId || 'default'
+          });
+        }
+      });
+    </script>
+    <!-- ✅ END INITIALIZATION -->
+    
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
