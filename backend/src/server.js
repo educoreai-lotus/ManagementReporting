@@ -16,7 +16,7 @@ import { securityConfig } from './config/security.js';
 import { rateLimiter } from './presentation/middleware/rateLimiter.js';
 import { initializeJobs } from './infrastructure/jobs/index.js';
 import runMigration from '../scripts/runMigration.js';
-import seedMockData, { isDatabaseEmpty } from './infrastructure/seedMockData.js';
+import seedSqlFile from './infrastructure/seedSqlFile.js';
 import { registerService } from './registration/register.js';
 
 dotenv.config();
@@ -104,19 +104,19 @@ app.listen(PORT, () => {
       console.error('[Startup] Migration error (non-fatal):', migrationErr.message);
     }
     
-    // Seed mock data if database is empty (one-time only) - non-blocking
+    // Seed mock data from SQL file (versioned, one-time per version) - non-blocking
     if (process.env.DATABASE_URL) {
       try {
-        const isEmpty = await isDatabaseEmpty();
-        if (isEmpty) {
-          console.log('[Startup] 📦 Database is empty, seeding mock data...');
-          await seedMockData();
-          console.log('[Startup] ✅ Mock data seeding completed');
+        const result = await seedSqlFile();
+        if (result.applied) {
+          console.log('[Startup] ✅ SQL seed file applied successfully');
+        } else if (result.reason === 'already_applied') {
+          console.log('[Startup] ℹ️  SQL seed already applied for current version');
         } else {
-          console.log('[Startup] ℹ️  Database already has data, skipping seed');
+          console.log(`[Startup] ℹ️  SQL seed skipped: ${result.reason}`);
         }
       } catch (seedErr) {
-        console.error('[Startup] Seed error (non-fatal):', seedErr.message);
+        console.error('[Startup] SQL seed error (non-fatal):', seedErr.message);
       }
     }
     
