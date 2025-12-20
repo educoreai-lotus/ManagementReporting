@@ -139,6 +139,15 @@ export class GetDashboardUseCase {
         if (service === 'contentStudio' || service === 'learningAnalytics') {
           const config = SERVICE_CHART_CONFIG[service];
           const mainChartData = this.formatChartData(data, service, 'main');
+          
+          console.log(`[GetDashboardUseCase] Processing ${service}:`, {
+            has_data: !!data,
+            has_metrics: !!data?.data?.metrics,
+            metrics_keys: Object.keys(data?.data?.metrics || {}),
+            mainChartData_length: mainChartData.length,
+            mainChartData_sample: mainChartData.slice(0, 3)
+          });
+          
           if (mainChartData.length > 0) {
             const mainChart = new ChartData({
               id: `chart-${service}`,
@@ -155,7 +164,16 @@ export class GetDashboardUseCase {
                 isPriority: false // Content Studio and Learning Analytics go to BOX
               }
             });
-            charts.push(mainChart.toJSON());
+            const chartJson = mainChart.toJSON();
+            console.log(`[GetDashboardUseCase] ✅ Created chart for ${service}:`, {
+              id: chartJson.id,
+              type: chartJson.type,
+              data_length: chartJson.data?.length,
+              data_sample: chartJson.data?.slice(0, 3)
+            });
+            charts.push(chartJson);
+          } else {
+            console.log(`[GetDashboardUseCase] ⚠️ No chart data for ${service} - mainChartData is empty`);
           }
         }
       }
@@ -238,13 +256,33 @@ export class GetDashboardUseCase {
       }
     }
 
-    // For learningAnalytics, ensure we have at least some data to display
-    if (service === 'learningAnalytics' && Object.keys(simpleMetrics).length === 0) {
-      // If no metrics found, return empty array (chart will show "No data")
-      return [];
+    console.log(`[formatMainChartData] ${service}:`, {
+      keyMetrics,
+      simpleMetrics,
+      simpleMetrics_keys: Object.keys(simpleMetrics),
+      all_zero: Object.values(simpleMetrics).every(v => v === 0)
+    });
+
+    // For learningAnalytics, check if all values are 0
+    if (service === 'learningAnalytics') {
+      if (Object.keys(simpleMetrics).length === 0) {
+        console.log(`[formatMainChartData] ⚠️ ${service}: No metrics found`);
+        return [];
+      }
+      // Check if all values are 0
+      const allZero = Object.values(simpleMetrics).every(v => v === 0);
+      if (allZero) {
+        console.log(`[formatMainChartData] ⚠️ ${service}: All metrics are 0 - chart will be empty`);
+        // Still return the data so the chart can show "0" values
+      }
     }
 
-    return this.formatMetricsArray(simpleMetrics);
+    const result = this.formatMetricsArray(simpleMetrics);
+    console.log(`[formatMainChartData] ${service} result:`, {
+      length: result.length,
+      sample: result.slice(0, 3)
+    });
+    return result;
   }
 
   formatDetailedChartData(service, metrics, chartType, entry) {
