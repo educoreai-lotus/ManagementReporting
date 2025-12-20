@@ -207,7 +207,7 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
 
     // ✅ Calculate metrics based on real data from DB
     // All calculations are derived from actual DB fields:
-    // - company_size (from DB) -> estimateUsersByCompanySize() -> totalUsers
+    // - company_size (from DB) -> parseCompanySizeToUserCount() -> totalUsers (exact count from company_size)
     // - hierarchy.departments (from DB) -> usersByDepartment
     // - kpis (from DB) -> may contain user_count, active_users, etc.
     // - verification_status (from DB) -> organizationsActive
@@ -220,8 +220,8 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     for (const row of rows) {
       const companyKey = row.company_name || row.company_id;
 
-      // Count users based on company_size (not hierarchy)
-      const userCount = this.estimateUsersByCompanySize(row.company_size);
+      // Use exact value from company_size (parse as number if possible)
+      const userCount = this.parseCompanySizeToUserCount(row.company_size);
       totalUsers += userCount;
       orgUserMap.set(companyKey, userCount);
 
@@ -255,7 +255,7 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     ).length;
 
     const metrics = {
-      totalUsers, // Sum of users estimated from company_size field
+      totalUsers, // Sum of users from company_size field (exact count parsed as number)
       totalOrganizations, // Direct count from DB
       activeUsers, // Calculated from kpis.active_users (DB field) or estimated from totalUsers
       usersByRole, // Empty - no role_distribution in DB
@@ -268,7 +268,7 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     const details = {
       users: Array.from(orgUserMap.entries()).map(([organization, count]) => ({
         organization,
-        count // Calculated from company_size (DB field)
+        count // Exact count from company_size field (parsed as number)
       })),
       organizations: rows.map((row) => ({
         company_id: row.company_id,
@@ -291,44 +291,47 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
   }
 
   /**
-   * Estimate user count based on company_size from DB
-   * This is a calculation based on real DB data (company_size field)
+   * Parse company_size to exact user count
+   * company_size contains the exact number of people in the organization
    */
-  estimateUsersByCompanySize(size) {
+  parseCompanySizeToUserCount(size) {
     if (!size) {
-      return 50; // Default fallback
+      return 0; // Default fallback - no users if no size
     }
     
-    // Map common company_size values from DB to estimated user counts
-    const sizeMap = {
-      '1-10': 8,
-      '10-50': 30,
-      '50-200': 125,
-      '200-500': 350,
-      '500+': 650
-    };
-    
-    if (sizeMap[size]) {
-      return sizeMap[size];
+    // Try to parse as direct number first
+    const directNumber = Number(size);
+    if (!isNaN(directNumber) && directNumber > 0) {
+      return Math.round(directNumber);
     }
     
-    // Parse range format (e.g., "1-10" -> average of 1 and 10)
+    // Try to extract number from string (e.g., "350", "350 employees", etc.)
+    const numberMatch = size.toString().match(/\d+/);
+    if (numberMatch) {
+      const extractedNumber = Number(numberMatch[0]);
+      if (!isNaN(extractedNumber) && extractedNumber > 0) {
+        return Math.round(extractedNumber);
+      }
+    }
+    
+    // Fallback: if it's a range format (e.g., "200-500"), use the upper bound as exact count
     if (size.includes('-')) {
       const [min, max] = size.split('-').map(Number);
       if (Number.isFinite(min) && Number.isFinite(max)) {
-        return Math.round((min + max) / 2);
+        // Use the upper bound as the exact count
+        return Math.round(max);
       }
     }
     
-    // Parse "+" format (e.g., "500+" -> 500 + buffer)
+    // Parse "+" format (e.g., "500+" -> use the base number as exact count)
     if (size.includes('+')) {
-      const base = Number(size.replace('+', ''));
-      if (Number.isFinite(base)) {
-        return base + 150;
+      const base = Number(size.replace('+', '').trim());
+      if (Number.isFinite(base) && base > 0) {
+        return Math.round(base);
       }
     }
     
-    return 50; // Default fallback
+    return 0; // Default fallback - no users if can't parse
   }
 
   /**
