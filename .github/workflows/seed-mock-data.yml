@@ -1,0 +1,63 @@
+name: Seed Mock Data
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'DB/seed_mock_data.sql'
+      - '.github/workflows/seed-mock-data.yml'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  seed-data:
+    name: Execute Mock Data Seeding Script
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      
+      - name: Execute seeding script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ ERROR: DATABASE_URL secret is not set"
+            exit 1
+          fi
+          
+          echo "📊 Starting mock data seeding..."
+          echo "📁 Script: DB/seed_mock_data.sql"
+          
+          # Execute SQL script using psql
+          # Script is idempotent (uses ON CONFLICT DO NOTHING)
+          psql "$DATABASE_URL" -f DB/seed_mock_data.sql -v ON_ERROR_STOP=1
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Mock data seeding completed successfully"
+          else
+            echo "❌ ERROR: Seeding script execution failed"
+            exit 1
+          fi
+      
+      - name: Verify execution
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "🔍 Verifying data insertion..."
+          
+          # Check if data exists (non-destructive verification)
+          COUNT=$(psql "$DATABASE_URL" -t -c "SELECT COUNT(*) FROM public.courses;" 2>/dev/null || echo "0")
+          
+          if [ -z "$COUNT" ] || [ "$COUNT" -eq "0" ]; then
+            echo "⚠️  WARNING: No courses found (may be expected if script was already run)"
+          else
+            echo "✅ Verification: Found $COUNT course(s) in database"
+          fi
+
