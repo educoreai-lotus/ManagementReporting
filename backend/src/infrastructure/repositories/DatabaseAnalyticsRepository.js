@@ -216,12 +216,12 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     let totalUsers = 0;
     const usersByDepartment = {};
 
-    // Calculate real user counts per organization from Directory hierarchy (no estimates)
+    // Calculate user counts per organization from company_size field
     for (const row of rows) {
       const companyKey = row.company_name || row.company_id;
 
-      // Count unique employees from hierarchy: departments -> teams -> employees
-      const userCount = this.countUsersFromHierarchy(row.hierarchy);
+      // Count users based on company_size (not hierarchy)
+      const userCount = this.estimateUsersByCompanySize(row.company_size);
       totalUsers += userCount;
       orgUserMap.set(companyKey, userCount);
 
@@ -249,15 +249,18 @@ export class DatabaseAnalyticsRepository extends ICacheRepository {
     const usersByRole = {};
 
     const totalOrganizations = rows.length;
-    const organizationsActive = rows.filter((row) => row.verification_status === 'verified').length;
+    // Count organizations with verification_status = 'verified' OR 'approved'
+    const organizationsActive = rows.filter((row) => 
+      row.verification_status === 'verified' || row.verification_status === 'approved'
+    ).length;
 
     const metrics = {
-      totalUsers, // Sum of real users from hierarchy (departments -> teams -> employees)
+      totalUsers, // Sum of users estimated from company_size field
       totalOrganizations, // Direct count from DB
       activeUsers, // Calculated from kpis.active_users (DB field) or estimated from totalUsers
       usersByRole, // Empty - no role_distribution in DB
       usersByDepartment, // Currently left as-is (existing behavior)
-      organizationsActive // Calculated from verification_status (DB field)
+      organizationsActive // Count of organizations with verification_status = 'verified' OR 'approved'
     };
 
     console.log('[Directory] Calculated metrics:', metrics);
