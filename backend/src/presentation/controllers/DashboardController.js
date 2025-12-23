@@ -70,12 +70,11 @@ export class DashboardController {
         if (priorityServices.includes(chart.metadata?.service)) {
           return true;
         }
-        // Include combined charts that are priority (even if not explicitly marked)
-        // These are the main combined charts for dashboard
+        // Include combined charts that are priority (even אם לא סומנו מפורשות)
+        // אלו הגרפים המשולבים שמופיעים בדשבורד הראשי (ללא completion-rate per org)
         const priorityCombinedChartIds = [
           'combined-enrollments-comparison',
           'combined-users-per-organization',
-          'combined-completion-rate-per-org',
           'combined-top-courses'
         ];
         if (priorityCombinedChartIds.includes(chart.id)) {
@@ -104,7 +103,6 @@ export class DashboardController {
           const priorityCombinedChartIds = [
             'combined-enrollments-comparison',
             'combined-users-per-organization',
-            'combined-completion-rate-per-org',
             'combined-top-courses'
           ];
           const retryPriorityCharts = retryAllCharts.filter(chart => {
@@ -185,12 +183,11 @@ export class DashboardController {
         if (priorityServices.includes(chart.metadata?.service)) {
           return true;
         }
-        // Include combined charts that are priority (even if not explicitly marked)
-        // These are the main combined charts for dashboard
+        // Include combined charts that are priority (even אם לא סומנו מפורשות)
+        // אלו הגרפים המשולבים שמופיעים בדשבורד הראשי (ללא completion-rate per org)
         const priorityCombinedChartIds = [
           'combined-enrollments-comparison',
           'combined-users-per-organization',
-          'combined-completion-rate-per-org',
           'combined-top-courses'
         ];
         if (priorityCombinedChartIds.includes(chart.id)) {

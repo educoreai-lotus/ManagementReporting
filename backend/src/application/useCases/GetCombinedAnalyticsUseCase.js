@@ -30,10 +30,10 @@ export class GetCombinedAnalyticsUseCase {
       const charts = [];
       
       // Priority combined charts for main dashboard (most important for managers)
+      // Note: 'combined-completion-rate-per-org' מופיע רק ב-BOX ולא בדשבורד הראשי
       const priorityChartIds = [
         'combined-enrollments-comparison',
         'combined-users-per-organization',
-        'combined-completion-rate-per-org',
         'combined-top-courses'
       ];
 
@@ -55,14 +55,15 @@ export class GetCombinedAnalyticsUseCase {
         }
       }
 
-      // 3. Average Completion Rate per Organization - PRIORITY
+      // 3. Average Completion Rate per Organization - BOX (לא בדשבורד הראשי)
       if (dataByService.directory && dataByService.courseBuilder) {
         const chart = this.createCompletionRatePerOrgChart(
           dataByService.directory,
           dataByService.courseBuilder
         );
         if (chart) {
-          chart.metadata.isPriority = true;
+          // הגרף הזה יוצג רק ב-BOX ולכן לא מסומן כ-priority לדשבורד הראשי
+          chart.metadata.isPriority = false;
           charts.push(chart);
         }
       }
