@@ -6,8 +6,8 @@ export const authorizeAdmin = (req, res, next) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  if (req.user.role !== 'System Administrator') {
-    const userId = req.user.userId || req.user.sub;
+  if (req.user.isSystemAdmin !== true) {
+    const userId = req.user.directoryUserId || req.user.userId || req.user.sub;
     
     // Log unauthorized access attempt
     auditLogger.logAccess(userId, req.path, 'denied');
@@ -29,7 +29,7 @@ export const authorizeAdmin = (req, res, next) => {
 
   // Log authorized access
   auditLogger.logAccess(
-    req.user.userId || req.user.sub,
+    req.user.directoryUserId || req.user.userId || req.user.sub,
     req.path,
     'granted'
   );

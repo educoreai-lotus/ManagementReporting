@@ -26,9 +26,3 @@ export const isDevelopment = () => {
   return import.meta.env.DEV || import.meta.env.MODE === 'development';
 };
 
-// Auto-set test token in development OR production (if not already set)
-// For MVP, we allow test token in production too
-if (!getTestToken()) {
-  setTestToken('test-token-for-local-development');
-}
-

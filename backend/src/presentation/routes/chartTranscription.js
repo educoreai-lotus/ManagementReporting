@@ -3,11 +3,15 @@ import { findByChartId, upsertAndReturn, getTranscriptionByChartId, upsertTransc
 import { computeChartSignature } from '../../utils/chartSignature.js';
 import { transcribeChartImage, transcribeChartJson } from '../../application/services/transcribeChartService.js';
 import { openaiQueue } from '../../utils/openaiQueue.js';
+import { authenticate } from '../middleware/authentication.js';
+import { authorizeAdmin } from '../middleware/authorization.js';
 
 console.debug('[AI] chartTranscription route loaded. Signature function OK.');
 console.debug('[BOOT] DATABASE_URL available:', !!process.env.DATABASE_URL);
 
 const router = Router();
+router.use(authenticate);
+router.use(authorizeAdmin);
 
 /**
  * GET /api/v1/ai/chart-transcription/:chartId

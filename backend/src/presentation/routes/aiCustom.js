@@ -2,8 +2,12 @@ import { Router } from 'express';
 import { AICustomSqlService } from '../../application/services/AICustomSqlService.js';
 import { getPool } from '../../infrastructure/db/pool.js';
 import { validateSqlSafety, addLimitIfMissing } from '../../utils/sqlSafety.js';
+import { authenticate } from '../middleware/authentication.js';
+import { authorizeAdmin } from '../middleware/authorization.js';
 
 const router = Router();
+router.use(authenticate);
+router.use(authorizeAdmin);
 
 // Initialize service (will throw if OPENAI_KEY is missing)
 let aiCustomSqlService;

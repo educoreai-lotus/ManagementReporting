@@ -5,11 +5,15 @@ import { getCachedTranscription, saveTranscription } from '../../infrastructure/
 import { computeChartSignature } from '../../utils/hash.js';
 import * as Repo from '../../infrastructure/repositories/ChartTranscriptionsRepository.js';
 import { getPool, withRetry } from '../../infrastructure/db/pool.js';
+import { authenticate } from '../middleware/authentication.js';
+import { authorizeAdmin } from '../middleware/authorization.js';
 
 console.debug('[AI] openai route loaded. Signature function OK.');
 console.debug('[BOOT] Repo keys ->', Object.keys(Repo));
 
 const router = Router();
+router.use(authenticate);
+router.use(authorizeAdmin);
 
 /**
  * POST /api/v1/openai/describe-chart

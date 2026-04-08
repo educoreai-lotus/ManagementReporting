@@ -1,72 +1,113 @@
-import jwt from 'jsonwebtoken';
 import { auditLogger } from '../../infrastructure/services/AuditLogger.js';
+import axios from 'axios';
 
-export const authenticate = (req, res, next) => {
+const N_AUTH_ACTION =
+  'Route this request to nAuth service only for access token validation and session continuity decision.';
+
+function extractValidationPayload(rawData) {
+  const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+  if (parsed && typeof parsed === 'object' && parsed.response && typeof parsed.response === 'object') {
+    return parsed.response;
+  }
+  return parsed;
+}
+
+async function postAuthValidationToCoordinator(envelope) {
+  const coordinatorUrl = process.env.COORDINATOR_API_URL;
+  if (!coordinatorUrl) {
+    throw new Error('COORDINATOR_API_URL environment variable is required');
+  }
+
+  const cleanCoordinatorUrl = coordinatorUrl.replace(/\/$/, '');
+  const url = `${cleanCoordinatorUrl}/request`;
+
+  return axios.post(url, envelope, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: 10000,
+  });
+}
+
+export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
-    // Allow test token in development OR if ALLOW_TEST_TOKEN is set (for MVP)
-    const allowTestToken = process.env.NODE_ENV === 'development' || process.env.ALLOW_TEST_TOKEN === 'true';
-    
-    if (allowTestToken) {
-      if (authHeader === 'Bearer test-token-for-local-development') {
-        req.user = {
-          userId: 'test-admin-user',
-          sub: 'test-admin-user',
-          role: 'System Administrator',
-          email: 'test@educoreai.com'
-        };
-        return next();
-      }
-    }
-    
-    // For MVP: Allow requests without token (skip authentication)
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // Set default user for MVP (no authentication required)
-      req.user = {
-        userId: 'mvp-user',
-        sub: 'mvp-user',
-        role: 'System Administrator',
-        email: 'mvp@educoreai.com'
-      };
-      return next();
-    }
-
-    const token = authHeader.substring(7);
-    
-    // Allow test token in development OR if ALLOW_TEST_TOKEN is set (for MVP)
-    if (allowTestToken && token === 'test-token-for-local-development') {
-      req.user = {
-        userId: 'test-admin-user',
-        sub: 'test-admin-user',
-        role: 'System Administrator',
-        email: 'test@educoreai.com'
-      };
-      return next();
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Log successful authentication
-    auditLogger.logTokenValidation(decoded.userId || decoded.sub, 'success');
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
       auditLogger.logTokenValidation(null, 'failure', {
-        reason: 'token_expired',
-        ipAddress: req.ip
+        reason: 'missing_bearer_token',
+        ipAddress: req.ip,
       });
-      return res.status(401).json({ error: 'Token expired' });
+      return res.status(401).json({ error: 'Missing bearer token' });
     }
-    
+
+    const token = authHeader.slice(7).trim();
+    if (!token) {
+      auditLogger.logTokenValidation(null, 'failure', {
+        reason: 'empty_bearer_token',
+        ipAddress: req.ip,
+      });
+      return res.status(401).json({ error: 'Invalid bearer token' });
+    }
+
+    const envelope = {
+      requester_service: 'ManagementReporting',
+      payload: {
+        action: N_AUTH_ACTION,
+        access_token: token,
+        route: req.originalUrl || req.path || '',
+        method: req.method || 'GET',
+      },
+      response: {
+        valid: false,
+        reason: '',
+        auth_state: '',
+        directory_user_id: '',
+        organization_id: '',
+        new_access_token: '',
+        primary_role: '',
+        is_system_admin: false,
+      },
+    };
+
+    const coordinatorResponse = await postAuthValidationToCoordinator(envelope);
+    const validation = extractValidationPayload(coordinatorResponse?.data);
+
+    if (!validation || validation.valid !== true) {
+      auditLogger.logTokenValidation(null, 'failure', {
+        reason: validation?.reason || 'invalid_token',
+        ipAddress: req.ip,
+      });
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const directoryUserId = validation.directory_user_id || '';
+    const organizationId = validation.organization_id || '';
+    const primaryRole = validation.primary_role || '';
+    const isSystemAdmin = validation.is_system_admin === true;
+
+    req.user = {
+      userId: directoryUserId || undefined,
+      sub: directoryUserId || undefined,
+      directoryUserId,
+      organizationId,
+      primaryRole,
+      isSystemAdmin,
+    };
+
+    if (typeof validation.new_access_token === 'string' && validation.new_access_token.trim() !== '') {
+      res.setHeader('X-New-Access-Token', validation.new_access_token.trim());
+    }
+
+    auditLogger.logTokenValidation(directoryUserId || null, 'success');
+    return next();
+  } catch (error) {
     auditLogger.logTokenValidation(null, 'failure', {
-      reason: 'invalid_token',
+      reason: 'coordinator_validation_failed',
       error: error.message,
-      ipAddress: req.ip
+      ipAddress: req.ip,
     });
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Authentication failed' });
   }
 };
 

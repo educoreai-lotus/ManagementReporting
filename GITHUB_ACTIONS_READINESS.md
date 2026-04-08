@@ -106,3 +106,4 @@ git push
 אחרי הדחיפה, לך ל-GitHub → Actions tab כדי לראות את ה-CI רץ.
 
 
+

@@ -7,9 +7,8 @@ import { getCacheRepository } from '../../infrastructure/repositories/CacheRepos
 
 const router = express.Router();
 
-// For MVP: Skip authentication - allow all requests
-// router.use(authenticate);
-// router.use(authorizeAdmin);
+router.use(authenticate);
+router.use(authorizeAdmin);
 
 router.post('/refresh', async (req, res, next) => {
   try {

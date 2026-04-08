@@ -28,12 +28,21 @@ const api = axios.create({
   },
 });
 
+const getAuthToken = () => localStorage.getItem('authToken');
+
+const updateTokenFromHeaders = (headers) => {
+  if (!headers) return;
+  const nextToken = headers['x-new-access-token'] || headers['X-New-Access-Token'];
+  if (typeof nextToken === 'string' && nextToken.trim() !== '') {
+    localStorage.setItem('authToken', nextToken.trim());
+  }
+};
+
 // Request interceptor for JWT token and logging
 // For MVP: Token is optional - backend accepts requests without token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
-    // Only add token if it exists (optional for MVP)
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -72,7 +81,6 @@ api.interceptors.request.use(
       console.log(`[API Request] ========================================`);
     }
     
-    // Continue even without token (for MVP)
     return config;
   },
   (error) => {
@@ -83,6 +91,8 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
+    updateTokenFromHeaders(response.headers);
+
     // Log successful responses for chart transcription endpoints
     if (response.config?.url?.includes('/chart-transcription')) {
       console.log(`[API Response] ✅ ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
@@ -97,10 +107,15 @@ api.interceptors.response.use(
       console.error(`[API Response] Error response data:`, error.response?.data);
       console.error(`[API Response] Request body that failed:`, error.config?.data ? JSON.parse(error.config.data) : 'N/A');
     }
+    updateTokenFromHeaders(error.response?.headers);
+
     if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      window.location.href = '/';
+    }
+
+    if (error.response?.status === 403) {
+      window.location.href = '/unauthorized';
     }
     
     // Handle 429 errors gracefully - reduce console spam
@@ -198,7 +213,17 @@ export const aiCustomAPI = {
     // Use direct axios call since this endpoint is at /api/ai-custom, not /api/v1
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const cleanBaseURL = baseURL.replace(/\/$/, '');
-    return axios.post(`${cleanBaseURL}/api/ai-custom/sql`, { queryText });
+    const token = getAuthToken();
+    return axios.post(
+      `${cleanBaseURL}/api/ai-custom/sql`,
+      { queryText },
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    ).then((response) => {
+      updateTokenFromHeaders(response.headers);
+      return response;
+    });
   },
 
   /**
@@ -212,7 +237,17 @@ export const aiCustomAPI = {
     // Use direct axios call since this endpoint is at /api/ai-custom, not /api/v1
     const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const cleanBaseURL = baseURL.replace(/\/$/, '');
-    return axios.post(`${cleanBaseURL}/api/ai-custom/query-data`, { queryText });
+    const token = getAuthToken();
+    return axios.post(
+      `${cleanBaseURL}/api/ai-custom/query-data`,
+      { queryText },
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    ).then((response) => {
+      updateTokenFromHeaders(response.headers);
+      return response;
+    });
   },
 };
 

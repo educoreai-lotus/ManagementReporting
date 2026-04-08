@@ -6,9 +6,8 @@ import { ReportsController } from '../controllers/ReportsController.js';
 
 const router = express.Router();
 
-// For MVP: Skip authentication - allow all requests
-// router.use(authenticate);
-// router.use(authorizeAdmin);
+router.use(authenticate);
+router.use(authorizeAdmin);
 router.use(sanitizeInput);
 
 const controller = new ReportsController();
