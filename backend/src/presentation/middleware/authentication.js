@@ -6,9 +6,21 @@ const N_AUTH_ACTION =
 
 function extractValidationPayload(rawData) {
   const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-  if (parsed && typeof parsed === 'object' && parsed.response && typeof parsed.response === 'object') {
+  if (!parsed || typeof parsed !== 'object') {
+    return parsed;
+  }
+
+  if (parsed.response && typeof parsed.response === 'object') {
     return parsed.response;
   }
+
+  if (parsed.data && typeof parsed.data === 'object') {
+    if (parsed.data.response && typeof parsed.data.response === 'object') {
+      return parsed.data.response;
+    }
+    return parsed.data;
+  }
+
   return parsed;
 }
 
@@ -74,6 +86,21 @@ export const authenticate = async (req, res, next) => {
     const validation = extractValidationPayload(coordinatorResponse?.data);
 
     if (!validation || validation.valid !== true) {
+      const responseData = coordinatorResponse?.data;
+      const parsedRoot = responseData && typeof responseData === 'object' ? responseData : null;
+      const parsedData = parsedRoot?.data && typeof parsedRoot.data === 'object' ? parsedRoot.data : null;
+
+      console.warn('[AuthValidationDebug] Validation rejected', {
+        path: req.originalUrl || req.path || '',
+        method: req.method || 'GET',
+        topLevelKeys: parsedRoot ? Object.keys(parsedRoot) : [],
+        hasResponse: !!(parsedRoot && parsedRoot.response && typeof parsedRoot.response === 'object'),
+        hasData: !!parsedData,
+        hasDataResponse: !!(parsedData && parsedData.response && typeof parsedData.response === 'object'),
+        parsedValid: validation?.valid,
+        parsedReason: validation?.reason || '',
+      });
+
       auditLogger.logTokenValidation(null, 'failure', {
         reason: validation?.reason || 'invalid_token',
         ipAddress: req.ip,

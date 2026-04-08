@@ -110,11 +110,21 @@ api.interceptors.response.use(
     updateTokenFromHeaders(error.response?.headers);
 
     if (error.response?.status === 401) {
+      console.warn('[AuthRedirectDebug] Redirecting after 401', {
+        url: error.config?.url,
+        status: error.response?.status,
+        redirectTo: '/',
+      });
       localStorage.removeItem('authToken');
       window.location.href = '/';
     }
 
     if (error.response?.status === 403) {
+      console.warn('[AuthRedirectDebug] Redirecting after 403', {
+        url: error.config?.url,
+        status: error.response?.status,
+        redirectTo: '/unauthorized',
+      });
       window.location.href = '/unauthorized';
     }
     
