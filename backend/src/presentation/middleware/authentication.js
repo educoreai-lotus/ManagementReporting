@@ -94,10 +94,13 @@ export const authenticate = async (req, res, next) => {
           ? 'data'
           : 'top-level';
     const validation = extractValidationPayload(coordinatorResponse?.data);
+    const requestPath = req.originalUrl || req.path || '';
+    const isAllChartsRequest = requestPath.includes('/api/v1/dashboard/all-charts');
 
     console.warn('[AuthMappingDebug][Before]', {
-      path: req.originalUrl || req.path || '',
+      path: requestPath,
       method: req.method || 'GET',
+      isAllChartsRequest,
       validationKeys: Object.keys(validation || {}),
       is_system_admin: validation?.is_system_admin,
       type_is_system_admin: typeof validation?.is_system_admin,
@@ -107,9 +110,20 @@ export const authenticate = async (req, res, next) => {
       validationSource,
     });
 
+    if (isAllChartsRequest) {
+      console.warn('[Auth401Debug][PreValidationCheck]', {
+        path: requestPath,
+        method: req.method || 'GET',
+        payloadRoute: envelope?.payload?.route || '',
+        validationValid: validation?.valid,
+        validationReason: validation?.reason || '',
+        validationKeys: Object.keys(validation || {}),
+      });
+    }
+
     if (!validation || validation.valid !== true) {
       console.warn('[AuthValidationDebug] Validation rejected', {
-        path: req.originalUrl || req.path || '',
+        path: requestPath,
         method: req.method || 'GET',
         topLevelKeys: parsedRoot ? Object.keys(parsedRoot) : [],
         hasResponse: !!(parsedRoot && parsedRoot.response && typeof parsedRoot.response === 'object'),
@@ -118,6 +132,16 @@ export const authenticate = async (req, res, next) => {
         parsedValid: validation?.valid,
         parsedReason: validation?.reason || '',
       });
+
+      if (isAllChartsRequest) {
+        console.warn('[Auth401Debug][ValidationBranch]', {
+          path: requestPath,
+          method: req.method || 'GET',
+          responseMessage: 'Invalid or expired token',
+          validationValid: validation?.valid,
+          validationReason: validation?.reason || '',
+        });
+      }
 
       auditLogger.logTokenValidation(null, 'failure', {
         reason: validation?.reason || 'invalid_token',
@@ -141,8 +165,9 @@ export const authenticate = async (req, res, next) => {
     };
 
     console.warn('[AuthMappingDebug][After]', {
-      path: req.originalUrl || req.path || '',
+      path: requestPath,
       method: req.method || 'GET',
+      isAllChartsRequest,
       reqUserIsSystemAdmin: req.user.isSystemAdmin,
       reqUserPrimaryRole: req.user.primaryRole,
       reqUserDirectoryUserId: req.user.directoryUserId,
@@ -155,6 +180,17 @@ export const authenticate = async (req, res, next) => {
     auditLogger.logTokenValidation(directoryUserId || null, 'success');
     return next();
   } catch (error) {
+    const requestPath = req.originalUrl || req.path || '';
+    const isAllChartsRequest = requestPath.includes('/api/v1/dashboard/all-charts');
+    if (isAllChartsRequest) {
+      console.warn('[Auth401Debug][CatchBranch]', {
+        path: requestPath,
+        method: req.method || 'GET',
+        errorMessage: error.message,
+        responseMessage: 'Authentication failed',
+      });
+    }
+
     auditLogger.logTokenValidation(null, 'failure', {
       reason: 'coordinator_validation_failed',
       error: error.message,
