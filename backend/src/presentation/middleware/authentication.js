@@ -83,13 +83,31 @@ export const authenticate = async (req, res, next) => {
     };
 
     const coordinatorResponse = await postAuthValidationToCoordinator(envelope);
+    const responseData = coordinatorResponse?.data;
+    const parsedRoot = responseData && typeof responseData === 'object' ? responseData : null;
+    const parsedData = parsedRoot?.data && typeof parsedRoot.data === 'object' ? parsedRoot.data : null;
+    const validationSource = parsedRoot?.response && typeof parsedRoot.response === 'object'
+      ? 'response'
+      : parsedData?.response && typeof parsedData.response === 'object'
+        ? 'data.response'
+        : parsedData
+          ? 'data'
+          : 'top-level';
     const validation = extractValidationPayload(coordinatorResponse?.data);
 
-    if (!validation || validation.valid !== true) {
-      const responseData = coordinatorResponse?.data;
-      const parsedRoot = responseData && typeof responseData === 'object' ? responseData : null;
-      const parsedData = parsedRoot?.data && typeof parsedRoot.data === 'object' ? parsedRoot.data : null;
+    console.warn('[AuthMappingDebug][Before]', {
+      path: req.originalUrl || req.path || '',
+      method: req.method || 'GET',
+      validationKeys: Object.keys(validation || {}),
+      is_system_admin: validation?.is_system_admin,
+      type_is_system_admin: typeof validation?.is_system_admin,
+      isSystemAdmin: validation?.isSystemAdmin,
+      type_isSystemAdmin: typeof validation?.isSystemAdmin,
+      primary_role: validation?.primary_role,
+      validationSource,
+    });
 
+    if (!validation || validation.valid !== true) {
       console.warn('[AuthValidationDebug] Validation rejected', {
         path: req.originalUrl || req.path || '',
         method: req.method || 'GET',
@@ -121,6 +139,14 @@ export const authenticate = async (req, res, next) => {
       primaryRole,
       isSystemAdmin,
     };
+
+    console.warn('[AuthMappingDebug][After]', {
+      path: req.originalUrl || req.path || '',
+      method: req.method || 'GET',
+      reqUserIsSystemAdmin: req.user.isSystemAdmin,
+      reqUserPrimaryRole: req.user.primaryRole,
+      reqUserDirectoryUserId: req.user.directoryUserId,
+    });
 
     if (typeof validation.new_access_token === 'string' && validation.new_access_token.trim() !== '') {
       res.setHeader('X-New-Access-Token', validation.new_access_token.trim());
