@@ -34,11 +34,13 @@ import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.j
  *
  * This function returns an array of company objects.
  */
-export async function fetchDirectoryDataFromService() {
+export async function fetchDirectoryDataFromService(jwtToken) {
+  const normalizedToken = typeof jwtToken === "string" ? jwtToken.trim() : "";
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
-      action: "Collecting Directory information : organizations registered in the system and the number of people registered in the system."
+      action: "Collecting Directory information : organizations registered in the system and the number of people registered in the system.",
+      access_token: normalizedToken || undefined
     },
     response: {
       companies: [
@@ -62,6 +64,20 @@ export async function fetchDirectoryDataFromService() {
   };
 
   try {
+    console.log("[TEMP DEBUG][DirectoryClient] Token reached fetchDirectoryDataFromService:", {
+      tokenArgumentExists: typeof jwtToken === "string" && jwtToken.trim() !== "",
+      tokenPrefix: normalizedToken ? `${normalizedToken.slice(0, 18)}...` : null,
+    });
+    console.log("[TEMP DEBUG][DirectoryClient] Outbound Coordinator request token fields:", {
+      authorizationHeaderExists: false,
+      authorizationHeaderPrefix: null,
+      payloadAccessTokenExists: typeof requestObject.payload?.access_token === "string" && requestObject.payload.access_token.trim() !== "",
+      payloadAccessTokenPrefix:
+        typeof requestObject.payload?.access_token === "string" && requestObject.payload.access_token.trim() !== ""
+          ? `${requestObject.payload.access_token.slice(0, 18)}...`
+          : null,
+    });
+
     const coordinatorResponse = await postToCoordinator(requestObject, { timeout: 60000 });
 
     if (typeof coordinatorResponse === "undefined" || coordinatorResponse === null) {

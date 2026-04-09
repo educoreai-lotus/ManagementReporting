@@ -101,7 +101,7 @@ export class CollectDataUseCase {
       try {
         console.log(`[CollectDataUseCase] Fetching ${handler.label} data...`);
         // Note: fetch functions don't take jwtToken parameter - they use env variables for API URLs
-        const fetchedData = await handler.fetch();
+        const fetchedData = await handler.fetch(jwtToken);
         console.log(`[CollectDataUseCase] Saving ${handler.label} snapshot to DB...`);
         await handler.save(fetchedData);
 
