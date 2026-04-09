@@ -36,11 +36,15 @@ import { verifyCoordinatorResponse } from "../../utils/coordinatorVerification.j
  */
 export async function fetchDirectoryDataFromService(jwtToken) {
   const normalizedToken = typeof jwtToken === "string" ? jwtToken.trim() : "";
+  if (!normalizedToken) {
+    throw new Error("Directory collection requires a user Bearer token (manual flow only).");
+  }
+
   const requestObject = {
     requester_service: "ManagementReporting",
     payload: {
       action: "Collecting Directory information : organizations registered in the system and the number of people registered in the system.",
-      access_token: normalizedToken || undefined
+      access_token: normalizedToken
     },
     response: {
       companies: [

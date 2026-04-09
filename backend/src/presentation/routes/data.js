@@ -13,7 +13,15 @@ router.use(authorizeAdmin);
 router.post('/refresh', async (req, res, next) => {
   try {
     const userId = req.user?.userId || req.user?.sub || 'mvp-user';
+    const authHeader = req.headers.authorization;
     const token = req.headers.authorization?.substring(7);
+    const normalizedToken = typeof token === 'string' ? token.trim() : '';
+    console.log('[TEMP DEBUG][DataRoute.refresh] Authorization intake:', {
+      authorizationHeaderExists: typeof authHeader === 'string' && authHeader.trim() !== '',
+      authorizationHeaderPrefix: typeof authHeader === 'string' && authHeader.trim() !== '' ? `${authHeader.slice(0, 18)}...` : null,
+      extractedTokenExists: normalizedToken !== '',
+      extractedTokenPrefix: normalizedToken !== '' ? `${normalizedToken.slice(0, 18)}...` : null
+    });
     const services = Array.isArray(req.body?.services) ? req.body.services : null;
     
     // Log data refresh initiation

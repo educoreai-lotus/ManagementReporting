@@ -100,6 +100,13 @@ export class CollectDataUseCase {
 
       try {
         console.log(`[CollectDataUseCase] Fetching ${handler.label} data...`);
+        const normalizedToken = typeof jwtToken === 'string' ? jwtToken.trim() : '';
+        console.log('[TEMP DEBUG][CollectDataUseCase.execute] Before handler.fetch:', {
+          service,
+          handlerLabel: handler.label,
+          jwtTokenExists: normalizedToken !== '',
+          jwtTokenPrefix: normalizedToken !== '' ? `${normalizedToken.slice(0, 18)}...` : null
+        });
         // Note: fetch functions don't take jwtToken parameter - they use env variables for API URLs
         const fetchedData = await handler.fetch(jwtToken);
         console.log(`[CollectDataUseCase] Saving ${handler.label} snapshot to DB...`);

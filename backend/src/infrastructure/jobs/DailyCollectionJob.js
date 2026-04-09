@@ -67,6 +67,11 @@ export const triggerManualCollection = async (jwtToken, services = null) => {
 
   console.log('triggerManualCollection - Starting data collection...');
   console.log('triggerManualCollection - Cache repository instance:', cacheRepository.constructor.name);
+  const normalizedToken = typeof jwtToken === 'string' ? jwtToken.trim() : '';
+  console.log('[TEMP DEBUG][triggerManualCollection] Token handoff:', {
+    jwtTokenExists: normalizedToken !== '',
+    jwtTokenPrefix: normalizedToken !== '' ? `${normalizedToken.slice(0, 18)}...` : null
+  });
   const results = await useCase.execute(jwtToken, services);
   console.log('triggerManualCollection - Results:', {
     successful: results.successful?.length || 0,
