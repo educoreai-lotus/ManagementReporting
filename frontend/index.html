@@ -13,45 +13,10 @@
     <div id="edu-bot-container"></div>
     <!-- ✅ END BOT CONTAINER -->
     
-    <!-- ✅ BOT SCRIPT -->
+    <!-- ✅ BOT SCRIPT (init moved to main.jsx via ragBotInit.js) -->
     <script src="https://rag-production-3a4c.up.railway.app/embed/bot.js"></script>
     <!-- ✅ END BOT SCRIPT -->
-    
-    <!-- ✅ INITIALIZATION -->
-    <script>
-      // Wait for bot script to load
-      window.addEventListener('load', function() {
-        // Get user data from localStorage (auth system)
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
-        
-        // Extract userId from JWT token if available
-        let userId = 'DEV_BOT_USER';
-        if (token) {
-          try {
-            const tokenParts = token.split('.');
-            if (tokenParts.length === 3) {
-              const payload = JSON.parse(atob(tokenParts[1]));
-              userId = payload.userId || payload.sub || payload.id || 'DEV_BOT_USER';
-            }
-          } catch (error) {
-            console.warn('Could not parse JWT token, using fallback user');
-          }
-        }
-        
-        // Initialize bot
-        if (window.initializeEducoreBot) {
-          window.initializeEducoreBot({
-            microservice: 'HR_MANAGEMENT_REPORTING',
-            userId: userId,
-            token: token,
-            tenantId: 'default'
-          });
-        }
-      });
-    </script>
-    <!-- ✅ END INITIALIZATION -->
     
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-

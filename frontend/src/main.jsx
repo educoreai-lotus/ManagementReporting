@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/index.css';
+import { ensureRagBotInitialized } from './utils/ragBotInit';
 
 const ingestAccessTokenFromHash = () => {
   const hash = window.location.hash || '';
@@ -21,10 +22,10 @@ const ingestAccessTokenFromHash = () => {
 };
 
 ingestAccessTokenFromHash();
+ensureRagBotInitialized();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
 );
-

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { refreshRagBotAuth } from '../utils/ragBotInit';
 
 // Get base URL from environment, default to localhost
 let baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -35,6 +36,8 @@ const updateTokenFromHeaders = (headers) => {
   const nextToken = headers['x-new-access-token'] || headers['X-New-Access-Token'];
   if (typeof nextToken === 'string' && nextToken.trim() !== '') {
     localStorage.setItem('authToken', nextToken.trim());
+    // Keep RAG widget auth in sync with rotated nAuth access token (no token logged).
+    refreshRagBotAuth();
   }
 };
 
